@@ -1,0 +1,973 @@
+/* ==================== CSS/style.css ==================== */
+/* Leave Management System - Main Stylesheet */
+
+/* Import Google Font */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ==================== RESET & BASE STYLES ==================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #EBF2FA 0%, #EBF2FA 100%);
+    min-height: 100vh;
+}
+
+/* ==================== ANIMATIONS ==================== */
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+}
+
+/* ==================== LOGIN PAGE STYLES ==================== */
+.login-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+}
+
+.login-card {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    overflow: hidden;
+    width: 450px;
+    max-width: 100%;
+    animation: slideUp 0.5s ease;
+}
+
+.login-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 40px 30px;
+    text-align: center;
+}
+
+.login-header i {
+    font-size: 60px;
+    margin-bottom: 15px;
+    animation: pulse 2s infinite;
+}
+
+.login-header h2 {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0;
+}
+
+.login-header p {
+    margin: 5px 0 0;
+    opacity: 0.9;
+    font-size: 14px;
+}
+
+.login-body {
+    padding: 40px 30px;
+}
+
+.form-group {
+    margin-bottom: 25px;
+    position: relative;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #555;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.input-icon {
+    position: absolute;
+    left: 15px;
+    top: 42px;
+    color: #999;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 12px 15px 12px 45px;
+    border: 2px solid #e1e1e1;
+    border-radius: 10px;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.form-group input:focus {
+    border-color: #667eea;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+}
+
+.btn-login {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 14px 30px;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.3s;
+}
+
+.btn-login:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(102,126,234,0.4);
+}
+
+.role-selector {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.role-btn {
+    flex: 1;
+    padding: 12px;
+    border: 2px solid #e1e1e1;
+    background: white;
+    border-radius: 10px;
+    font-weight: 600;
+    color: #555;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.role-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: transparent;
+}
+
+.role-btn.employee.active {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.role-btn.manager.active {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.role-btn.admin.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.user-list {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 1px dashed #dee2e6;
+}
+
+.user-list h6 {
+    color: #555;
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+.user-badge {
+    display: inline-block;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin: 5px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: none;
+    color: white;
+}
+
+.user-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+.user-badge.employee {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.user-badge.manager {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.user-badge.admin {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* ==================== MAIN APP STYLES ==================== */
+.main-app {
+    display: none;
+}
+
+.main-container {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.header {
+    background: white;
+    border-radius: 20px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    animation: slideDown 0.5s ease;
+}
+
+.company-name {
+    color: #4f46e5;
+    font-weight: 700;
+    font-size: 24px;
+    margin: 0;
+}
+
+.role-badge {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: white;
+}
+
+.role-badge.employee {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.role-badge.manager {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.role-badge.admin {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* ==================== NOTIFICATION STYLES ==================== */
+.notification-container {
+    position: relative;
+    margin-right: 15px;
+    cursor: pointer;
+}
+
+.notification-bell {
+    font-size: 24px;
+    color: #4b5563;
+    transition: all 0.3s;
+}
+
+.notification-bell:hover {
+    color: #4f46e5;
+    transform: scale(1.1);
+}
+
+.notification-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ef4444;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    animation: pulse 1s infinite;
+}
+
+.notification-panel {
+    position: absolute;
+    top: 60px;
+    right: 0;
+    width: 350px;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    z-index: 1000;
+    display: none;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.notification-panel.show {
+    display: block;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.notification-header {
+    background: linear-gradient(135deg, #4f46e5 0%, #818cf8 100%);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 15px 15px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.notification-header h6 {
+    margin: 0;
+    font-weight: 600;
+}
+
+.notification-header button {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+}
+
+.notification-header button:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+.notification-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.notification-item {
+    padding: 15px 20px;
+    border-bottom: 1px solid #e5e7eb;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.notification-item:hover {
+    background: #f9fafb;
+}
+
+.notification-item.unread {
+    background: #eef2ff;
+}
+
+.notification-item.unread:hover {
+    background: #e0e7ff;
+}
+
+.notification-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+}
+
+.notification-content {
+    flex: 1;
+}
+
+.notification-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #1f2937;
+    margin-bottom: 3px;
+}
+
+.notification-message {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 3px;
+}
+
+.notification-time {
+    font-size: 10px;
+    color: #9ca3af;
+}
+
+.notification-footer {
+    padding: 12px 20px;
+    border-top: 1px solid #e5e7eb;
+    text-align: center;
+}
+
+.notification-footer a {
+    color: #4f46e5;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 500;
+    margin: 0 10px;
+}
+
+.notification-footer a:hover {
+    text-decoration: underline;
+}
+
+/* ==================== TOAST NOTIFICATIONS ==================== */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+}
+
+.toast-message {
+    background: white;
+    border-radius: 10px;
+    padding: 12px 20px;
+    margin-bottom: 10px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    min-width: 300px;
+    animation: slideInRight 0.3s ease;
+    border-left: 4px solid;
+}
+
+.toast-message.success {
+    border-left-color: #10b981;
+}
+
+.toast-message.warning {
+    border-left-color: #f59e0b;
+}
+
+.toast-message.error {
+    border-left-color: #ef4444;
+}
+
+.toast-message.info {
+    border-left-color: #3b82f6;
+}
+
+.toast-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+}
+
+.toast-content {
+    flex: 1;
+}
+
+.toast-title {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 2px;
+}
+
+.toast-text {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+/* ==================== USER INFO STYLES ==================== */
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.user-avatar {
+    width: 45px;
+    height: 45px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 18px;
+}
+
+.logout-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: #fee2e2;
+    color: #dc2626;
+    border: none;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+
+.logout-btn:hover {
+    background: #dc2626;
+    color: white;
+}
+
+/* ==================== WELCOME BANNER ==================== */
+.welcome-banner {
+    background: linear-gradient(135deg, #4f46e5 0%, #818cf8 100%);
+    border-radius: 20px;
+    padding: 30px;
+    color: white;
+    margin-bottom: 25px;
+    box-shadow: 0 10px 30px rgba(79, 70, 229, 0.3);
+    animation: fadeIn 0.5s ease;
+}
+
+.welcome-icon {
+    font-size: 50px;
+    margin-right: 20px;
+}
+
+.quick-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.quick-action-btn {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+
+.quick-action-btn:hover {
+    background: rgba(255,255,255,0.3);
+    transform: translateY(-2px);
+}
+
+/* ==================== STATS CARDS ==================== */
+.stats-card {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+    transition: all 0.3s;
+    height: 100%;
+    animation: slideUp 0.5s ease;
+}
+
+.stats-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+}
+
+.stats-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 15px;
+}
+
+.stats-label {
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 5px;
+}
+
+.stats-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 5px;
+}
+
+/* ==================== CARD STYLES ==================== */
+.card {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+    margin-bottom: 25px;
+    animation: fadeIn 0.5s ease;
+}
+
+.card-header {
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 20px 25px;
+    border-radius: 15px 15px 0 0 !important;
+}
+
+.card-header h5 {
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+}
+
+.card-body {
+    padding: 25px;
+}
+
+/* ==================== LEAVE BALANCE PROGRESS ==================== */
+.balance-item {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f9fafb;
+    border-radius: 10px;
+    transition: all 0.3s;
+}
+
+.balance-item:hover {
+    background: #f3f4f6;
+}
+
+.balance-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.balance-label {
+    font-weight: 500;
+    color: #374151;
+}
+
+.balance-values {
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.progress {
+    height: 8px;
+    background-color: #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    border-radius: 10px;
+    transition: width 0.5s ease;
+}
+
+/* ==================== TABLE STYLES ==================== */
+.table {
+    margin: 0;
+}
+
+.table thead th {
+    border-top: none;
+    border-bottom: 2px solid #e5e7eb;
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b7280;
+    padding: 15px;
+}
+
+.table tbody td {
+    padding: 15px;
+    vertical-align: middle;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.table-hover tbody tr:hover {
+    background-color: #f9fafb;
+}
+
+/* ==================== BADGE STYLES ==================== */
+.badge {
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.badge-pending {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.badge-approved {
+    background: #d1fae5;
+    color: #059669;
+}
+
+.badge-rejected {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* ==================== BUTTON STYLES ==================== */
+.btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+
+.btn-primary {
+    background: #4f46e5;
+    border-color: #4f46e5;
+}
+
+.btn-primary:hover {
+    background: #4338ca;
+    border-color: #4338ca;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(79, 70, 229, 0.3);
+}
+
+.btn-success {
+    background: #10b981;
+    border-color: #10b981;
+    color: white;
+}
+
+.btn-warning {
+    background: #f59e0b;
+    border-color: #f59e0b;
+    color: white;
+}
+
+.btn-danger {
+    background: #ef4444;
+    border-color: #ef4444;
+    color: white;
+}
+
+.btn-info {
+    background: #3b82f6;
+    border-color: #3b82f6;
+    color: white;
+}
+
+.btn-sm {
+    padding: 5px 10px;
+    font-size: 12px;
+}
+
+.action-buttons .btn {
+    margin: 0 2px;
+}
+
+/* ==================== AVATAR STYLES ==================== */
+.avatar-circle {
+    width: 35px;
+    height: 35px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+}
+
+/* ==================== MODAL STYLES ==================== */
+.modal-content {
+    border: none;
+    border-radius: 15px;
+}
+
+.modal-header {
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 20px 25px;
+    border-radius: 15px 15px 0 0;
+}
+
+.modal-title {
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.modal-body {
+    padding: 25px;
+}
+
+.modal-footer {
+    border-top: 1px solid #e5e7eb;
+    padding: 20px 25px;
+}
+
+/* ==================== FORM STYLES ==================== */
+.form-label {
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 5px;
+}
+
+.form-control, .form-select {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px 15px;
+    font-size: 14px;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+/* ==================== TAB STYLES ==================== */
+.nav-tabs {
+    border-bottom: 2px solid #e5e7eb;
+    margin-bottom: 25px;
+}
+
+.nav-tabs .nav-link {
+    border: none;
+    color: #6b7280;
+    font-weight: 600;
+    padding: 12px 20px;
+    margin-right: 10px;
+    border-radius: 8px 8px 0 0;
+    transition: all 0.3s;
+}
+
+.nav-tabs .nav-link:hover {
+    background: #f3f4f6;
+    color: #4f46e5;
+}
+
+.nav-tabs .nav-link.active {
+    color: #4f46e5;
+    background: white;
+    border-bottom: 3px solid #4f46e5;
+}
+
+/* ==================== ADMIN SECTION ==================== */
+.admin-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 15px;
+    padding: 20px;
+    color: white;
+    margin-bottom: 25px;
+}
+
+/* ==================== LOADING SPINNER ==================== */
+.spinner-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255,255,255,0.9);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.spinner-overlay.show {
+    display: flex;
+}
+
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* ==================== RESPONSIVE STYLES ==================== */
+@media (max-width: 768px) {
+    .header {
+        padding: 15px;
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .welcome-banner {
+        padding: 20px;
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .quick-actions {
+        margin-top: 15px;
+        justify-content: center;
+    }
+    
+    .stats-card {
+        padding: 15px;
+    }
+    
+    .user-info {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .notification-panel {
+        width: 300px;
+        right: -50px;
+    }
+}
