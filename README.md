@@ -58,3 +58,5 @@ A comprehensive web-based Leave Management System with role-based access control
 1. Clone the repository:
    ```bash
    git clone https://github.com/yourusername/leave-management-system.git
+   bash
+cd leave-management-system
