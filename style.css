@@ -1,10 +1,6 @@
-/* ==================== CSS/style.css ==================== */
-/* Leave Management System - Main Stylesheet */
+/* style.css - Leave Management System Styles */
 
-/* Import Google Font */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
-/* ==================== RESET & BASE STYLES ==================== */
+/* ==================== GLOBAL STYLES ==================== */
 * {
     margin: 0;
     padding: 0;
@@ -13,7 +9,7 @@
 
 body {
     font-family: 'Inter', sans-serif;
-    background: linear-gradient(135deg, #EBF2FA 0%, #EBF2FA 100%);
+    background: linear-gradient(135deg, #EBF2FA 100%, #EBF2FA 100%);
     min-height: 100vh;
 }
 
@@ -27,6 +23,12 @@ body {
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
 }
 
 @keyframes slideDown {
@@ -51,10 +53,15 @@ body {
     }
 }
 
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 @keyframes slideInRight {
@@ -65,17 +72,6 @@ body {
     to {
         opacity: 1;
         transform: translateX(0);
-    }
-}
-
-@keyframes slideOutRight {
-    from {
-        opacity: 1;
-        transform: translateX(0);
-    }
-    to {
-        opacity: 0;
-        transform: translateX(100%);
     }
 }
 
@@ -127,6 +123,7 @@ body {
     padding: 40px 30px;
 }
 
+/* Form Groups */
 .form-group {
     margin-bottom: 25px;
     position: relative;
@@ -162,6 +159,7 @@ body {
     box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
 }
 
+/* Login Button */
 .btn-login {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
@@ -180,6 +178,7 @@ body {
     box-shadow: 0 10px 30px rgba(102,126,234,0.4);
 }
 
+/* Role Selector */
 .role-selector {
     display: flex;
     gap: 10px;
@@ -216,6 +215,7 @@ body {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
+/* User List */
 .user-list {
     margin-top: 20px;
     padding: 15px;
@@ -271,6 +271,7 @@ body {
     padding: 20px;
 }
 
+/* Header */
 .header {
     background: white;
     border-radius: 20px;
@@ -287,6 +288,7 @@ body {
     margin: 0;
 }
 
+/* Role Badge */
 .role-badge {
     padding: 8px 16px;
     border-radius: 8px;
@@ -307,7 +309,7 @@ body {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-/* ==================== NOTIFICATION STYLES ==================== */
+/* Notification Bell */
 .notification-container {
     position: relative;
     margin-right: 15px;
@@ -342,6 +344,7 @@ body {
     animation: pulse 1s infinite;
 }
 
+/* Notification Panel */
 .notification-panel {
     position: absolute;
     top: 60px;
@@ -359,17 +362,6 @@ body {
 .notification-panel.show {
     display: block;
     animation: slideIn 0.3s ease;
-}
-
-@keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
 }
 
 .notification-header {
@@ -478,7 +470,7 @@ body {
     text-decoration: underline;
 }
 
-/* ==================== TOAST NOTIFICATIONS ==================== */
+/* Toast Notifications */
 .toast-container {
     position: fixed;
     top: 20px;
@@ -540,7 +532,7 @@ body {
     color: #6b7280;
 }
 
-/* ==================== USER INFO STYLES ==================== */
+/* User Info */
 .user-info {
     display: flex;
     align-items: center;
@@ -559,6 +551,7 @@ body {
     font-size: 18px;
 }
 
+/* Logout Button */
 .logout-btn {
     padding: 8px 16px;
     border-radius: 8px;
@@ -575,7 +568,7 @@ body {
     color: white;
 }
 
-/* ==================== WELCOME BANNER ==================== */
+/* Welcome Banner */
 .welcome-banner {
     background: linear-gradient(135deg, #4f46e5 0%, #818cf8 100%);
     border-radius: 20px;
@@ -613,7 +606,7 @@ body {
     transform: translateY(-2px);
 }
 
-/* ==================== STATS CARDS ==================== */
+/* Stats Cards */
 .stats-card {
     background: white;
     border-radius: 15px;
@@ -654,7 +647,7 @@ body {
     margin-bottom: 5px;
 }
 
-/* ==================== CARD STYLES ==================== */
+/* Cards */
 .card {
     border: none;
     border-radius: 15px;
@@ -680,7 +673,7 @@ body {
     padding: 25px;
 }
 
-/* ==================== LEAVE BALANCE PROGRESS ==================== */
+/* Leave Balance Progress */
 .balance-item {
     margin-bottom: 20px;
     padding: 15px;
@@ -721,7 +714,7 @@ body {
     transition: width 0.5s ease;
 }
 
-/* ==================== TABLE STYLES ==================== */
+/* Table Styles */
 .table {
     margin: 0;
 }
@@ -745,7 +738,7 @@ body {
     background-color: #f9fafb;
 }
 
-/* ==================== BADGE STYLES ==================== */
+/* Badges */
 .badge {
     padding: 5px 10px;
     border-radius: 20px;
@@ -768,7 +761,7 @@ body {
     color: #dc2626;
 }
 
-/* ==================== BUTTON STYLES ==================== */
+/* Buttons */
 .btn {
     padding: 8px 16px;
     border-radius: 8px;
@@ -822,7 +815,7 @@ body {
     margin: 0 2px;
 }
 
-/* ==================== AVATAR STYLES ==================== */
+/* Avatar */
 .avatar-circle {
     width: 35px;
     height: 35px;
@@ -833,7 +826,7 @@ body {
     font-weight: 600;
 }
 
-/* ==================== MODAL STYLES ==================== */
+/* Modal Styles */
 .modal-content {
     border: none;
     border-radius: 15px;
@@ -860,7 +853,7 @@ body {
     padding: 20px 25px;
 }
 
-/* ==================== FORM STYLES ==================== */
+/* Form Styles */
 .form-label {
     font-weight: 500;
     color: #374151;
@@ -879,7 +872,7 @@ body {
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
 }
 
-/* ==================== TAB STYLES ==================== */
+/* Tabs */
 .nav-tabs {
     border-bottom: 2px solid #e5e7eb;
     margin-bottom: 25px;
@@ -906,7 +899,7 @@ body {
     border-bottom: 3px solid #4f46e5;
 }
 
-/* ==================== ADMIN SECTION ==================== */
+/* Admin Section */
 .admin-section {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-radius: 15px;
@@ -915,7 +908,7 @@ body {
     margin-bottom: 25px;
 }
 
-/* ==================== LOADING SPINNER ==================== */
+/* Loading Spinner */
 .spinner-overlay {
     position: fixed;
     top: 0;
