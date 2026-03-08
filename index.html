@@ -1793,65 +1793,364 @@
         let currentUser = null;
         let selectedRole = 'employee';
 
-        // ==================== LOCAL STORAGE FUNCTIONS ====================
-        function saveToLocalStorage() {
-            localStorage.setItem('hr_employees', JSON.stringify(employees));
-            localStorage.setItem('hr_departments', JSON.stringify(departments));
-            localStorage.setItem('hr_designations', JSON.stringify(designations));
-            localStorage.setItem('hr_leaveTypes', JSON.stringify(leaveTypes));
-            localStorage.setItem('hr_leaveRequests', JSON.stringify(leaveRequests));
-            localStorage.setItem('hr_leaveBalances', JSON.stringify(leaveBalances));
-            localStorage.setItem('hr_notifications', JSON.stringify(notifications));
-            localStorage.setItem('hr_notificationId', notificationId.toString());
-        }
+       // ==================== GOOGLE SHEETS API CONFIGURATION ====================
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby53zFFfBy5UcMWKlJd2zX_8ggKO5-HF_iwuJvaR7y3fzM_S9vOnu2TfV3Q_69Cm_S3/exec';
 
-        function loadFromLocalStorage() {
-            // Load employees
-            const savedEmployees = localStorage.getItem('hr_employees');
-            if (savedEmployees) {
-                employees = JSON.parse(savedEmployees);
-            }
+// ==================== API FUNCTIONS ====================
+async function callGoogleAppsScript(method, params = {}) {
+  const url = new URL(GOOGLE_APPS_SCRIPT_URL);
+  url.searchParams.append('method', method);
+  
+  // Add all params to URL
+  Object.keys(params).forEach(key => {
+    url.searchParams.append(key, params[key]);
+  });
+  
+  try {
+    const response = await fetch(url.toString());
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('API Error:', error);
+    showToast('error', 'Connection Error', 'Failed to connect to Google Sheets');
+    return { success: false, error: error.toString() };
+  }
+}
 
-            // Load departments
-            const savedDepartments = localStorage.getItem('hr_departments');
-            if (savedDepartments) {
-                departments = JSON.parse(savedDepartments);
-            }
+// ==================== EMPLOYEE FUNCTIONS ====================
+async function loadEmployeesFromSheet() {
+  const result = await callGoogleAppsScript('getEmployees');
+  if (result.success) {
+    employees = result.data;
+    return employees;
+  }
+  return [];
+}
 
-            // Load designations
-            const savedDesignations = localStorage.getItem('hr_designations');
-            if (savedDesignations) {
-                designations = JSON.parse(savedDesignations);
-            }
+async function saveEmployeeToSheet(employeeData) {
+  const result = await callGoogleAppsScript('addEmployee', employeeData);
+  if (result.success) {
+    showToast('success', 'Success', result.message);
+    await loadEmployeesFromSheet();
+  } else {
+    showToast('error', 'Error', result.error);
+  }
+  return result;
+}
 
-            // Load leave types
-            const savedLeaveTypes = localStorage.getItem('hr_leaveTypes');
-            if (savedLeaveTypes) {
-                leaveTypes = JSON.parse(savedLeaveTypes);
-            }
+async function updateEmployeeInSheet(employeeData) {
+  const result = await callGoogleAppsScript('updateEmployee', employeeData);
+  if (result.success) {
+    showToast('success', 'Success', result.message);
+    await loadEmployeesFromSheet();
+  }
+  return result;
+}
 
-            // Load leave requests
-            const savedLeaveRequests = localStorage.getItem('hr_leaveRequests');
-            if (savedLeaveRequests) {
-                leaveRequests = JSON.parse(savedLeaveRequests);
-            }
+async function deleteEmployeeFromSheet(empId) {
+  const result = await callGoogleAppsScript('deleteEmployee', { id: empId });
+  if (result.success) {
+    showToast('warning', 'Deleted', result.message);
+    await loadEmployeesFromSheet();
+  }
+  return result;
+}
 
-            // Load leave balances
-            const savedLeaveBalances = localStorage.getItem('hr_leaveBalances');
-            if (savedLeaveBalances) {
-                leaveBalances = JSON.parse(savedLeaveBalances);
-            }
+// ==================== LEAVE REQUEST FUNCTIONS ====================
+async function loadLeaveRequestsFromSheet(filters = {}) {
+  const result = await callGoogleAppsScript('getLeaveRequests', filters);
+  if (result.success) {
+    leaveRequests = result.data;
+    return leaveRequests;
+  }
+  return [];
+}
 
-            // Load notifications
-            const savedNotifications = localStorage.getItem('hr_notifications');
-            if (savedNotifications) {
-                notifications = JSON.parse(savedNotifications);
-            }
+async function saveLeaveRequestToSheet(requestData) {
+  const result = await callGoogleAppsScript('addLeaveRequest', requestData);
+  if (result.success) {
+    showToast('success', 'Success', result.message);
+    await loadLeaveRequestsFromSheet();
+  }
+  return result;
+}
 
-            // Load notification ID
-            const savedNotifId = localStorage.getItem('hr_notificationId');
-            if (savedNotifId) {
-                notificationId = parseInt(savedNotifId);
+async function updateLeaveRequestInSheet(requestData) {
+  const result = await callGoogleAppsScript('updateLeaveRequest', requestData);
+  if (result.success) {
+    await loadLeaveRequestsFromSheet();
+  }
+  return result;
+}
+
+// ==================== LEAVE BALANCE FUNCTIONS ====================
+async function loadLeaveBalancesFromSheet(employeeId = null) {
+  const params = employeeId ? { employeeId: employeeId } : {};
+  const result = await callGoogleAppsScript('getLeaveBalances', params);
+  if (result.success) {
+    leaveBalances = result.data;
+    return leaveBalances;
+  }
+  return [];
+}
+
+async function updateLeaveBalanceInSheet(balanceData) {
+  const result = await callGoogleAppsScript('updateLeaveBalance', balanceData);
+  if (result.success) {
+    await loadLeaveBalancesFromSheet();
+  }
+  return result;
+}
+
+// ==================== DEPARTMENT FUNCTIONS ====================
+async function loadDepartmentsFromSheet() {
+  const result = await callGoogleAppsScript('getDepartments');
+  if (result.success) {
+    departments = result.data;
+    return departments;
+  }
+  return [];
+}
+
+// ==================== DESIGNATION FUNCTIONS ====================
+async function loadDesignationsFromSheet() {
+  const result = await callGoogleAppsScript('getDesignations');
+  if (result.success) {
+    designations = result.data;
+    return designations;
+  }
+  return [];
+}
+
+// ==================== LEAVE TYPES FUNCTIONS ====================
+async function loadLeaveTypesFromSheet() {
+  const result = await callGoogleAppsScript('getLeaveTypes');
+  if (result.success) {
+    leaveTypes = result.data;
+    return leaveTypes;
+  }
+  return [];
+}
+
+// ==================== AUTHENTICATION FUNCTIONS ====================
+async function loginWithGoogleSheets(username, password, role) {
+  const result = await callGoogleAppsScript('login', {
+    username: username,
+    password: password,
+    role: role
+  });
+  
+  if (result.success) {
+    return result.data;
+  } else {
+    throw new Error(result.error);
+  }
+}
+
+// ==================== MODIFIED LOGIN FUNCTION ====================
+async function handleLogin(event) {
+  event.preventDefault();
+  
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+  
+  try {
+    // Show loading
+    document.getElementById('spinner').classList.add('show');
+    
+    const user = await loginWithGoogleSheets(username, password, selectedRole);
+    
+    if (user) {
+      currentUser = user;
+      document.getElementById('loginError').style.display = 'none';
+      
+      // Load all data from Google Sheets
+      await Promise.all([
+        loadEmployeesFromSheet(),
+        loadDepartmentsFromSheet(),
+        loadDesignationsFromSheet(),
+        loadLeaveTypesFromSheet(),
+        loadLeaveRequestsFromSheet(),
+        loadLeaveBalancesFromSheet()
+      ]);
+      
+      showMainApp();
+      loadUserDashboard();
+      
+      // Create welcome notification
+      createNotification(
+        NOTIFICATION_TYPES.INFO,
+        'Login Successful',
+        `Welcome back, ${user.Name}!`,
+        { userId: user.ID }
+      );
+      
+      document.getElementById('spinner').classList.remove('show');
+    }
+  } catch (error) {
+    document.getElementById('spinner').classList.remove('show');
+    document.getElementById('errorMessage').textContent = error.message || 'Invalid credentials';
+    document.getElementById('loginError').style.display = 'block';
+  }
+}
+
+// ==================== MODIFIED SUBMIT LEAVE FUNCTION ====================
+async function submitLeaveApplication() {
+  const leaveType = document.getElementById('leaveType').value;
+  const startDate = document.getElementById('startDate').value;
+  const endDate = document.getElementById('endDate').value;
+  const reason = document.getElementById('reason').value;
+  const contact = document.getElementById('contact').value;
+  const days = parseInt(document.getElementById('totalDays').textContent);
+  
+  if (!leaveType || !startDate || !endDate || !reason) {
+    alert('Please fill in all required fields');
+    return;
+  }
+  
+  if (days === 0) {
+    alert('Please select valid dates');
+    return;
+  }
+  
+  // Check balance
+  const select = document.getElementById('leaveType');
+  const selectedOption = select.options[select.selectedIndex];
+  const balance = parseFloat(selectedOption.getAttribute('data-balance'));
+  
+  if (days > balance) {
+    alert('Insufficient leave balance!');
+    return;
+  }
+  
+  // Show loading
+  document.getElementById('spinner').classList.add('show');
+  
+  // Create new leave request
+  const newRequest = {
+    employeeId: currentUser.ID,
+    employeeName: currentUser.Name,
+    department: currentUser.Department,
+    leaveType: leaveType,
+    startDate: startDate,
+    endDate: endDate,
+    days: days,
+    reason: reason,
+    contact: contact
+  };
+  
+  const result = await saveLeaveRequestToSheet(newRequest);
+  
+  document.getElementById('spinner').classList.remove('show');
+  
+  if (result.success) {
+    // Reset and close
+    resetApplicationForm();
+    document.getElementById('apply-tab').click();
+    
+    showToast('success', 'Success', 'Leave application submitted successfully!');
+    await loadLeaveRequestsFromSheet();
+    await loadLeaveBalancesFromSheet(currentUser.ID);
+    
+    loadMyLeaves();
+    updateStatistics();
+    
+    // Update pending badge if user is manager/admin
+    if (currentUser.role === 'manager' || currentUser.role === 'admin') {
+      loadPendingRequests();
+    }
+  }
+}
+
+// ==================== MODIFIED APPROVE REQUEST FUNCTION ====================
+async function approveRequest(requestId) {
+  if (confirm('Are you sure you want to approve this leave request?')) {
+    document.getElementById('spinner').classList.add('show');
+    
+    const request = leaveRequests.find(r => r.RequestID === requestId);
+    
+    const result = await updateLeaveRequestInSheet({
+      id: requestId,
+      status: 'Approved',
+      approvedBy: currentUser.Name
+    });
+    
+    if (result.success) {
+      // Update leave balance
+      const balance = leaveBalances.find(b => 
+        b.EmployeeID === request.EmployeeID && 
+        b.LeaveType === request.LeaveType
+      );
+      
+      if (balance) {
+        await updateLeaveBalanceInSheet({
+          balanceId: balance.BalanceID,
+          usedDays: (balance.UsedDays || 0) + parseInt(request.Days),
+          availableDays: (balance.TotalDays || 0) - ((balance.UsedDays || 0) + parseInt(request.Days))
+        });
+      }
+      
+      // Refresh data
+      await loadLeaveRequestsFromSheet();
+      await loadLeaveBalancesFromSheet();
+      
+      loadPendingRequests();
+      showToast('success', 'Approved', `Leave request for ${request.EmployeeName} has been approved`);
+    }
+    
+    document.getElementById('spinner').classList.remove('show');
+  }
+}
+
+// ==================== MODIFIED REJECT REQUEST FUNCTION ====================
+async function confirmReject() {
+  const reason = document.getElementById('rejectionReason').value;
+  if (!reason) {
+    alert('Please provide a reason for rejection');
+    return;
+  }
+  
+  document.getElementById('spinner').classList.add('show');
+  
+  const result = await updateLeaveRequestInSheet({
+    id: currentRejectId,
+    status: 'Rejected',
+    rejectReason: reason,
+    rejectedBy: currentUser.Name
+  });
+  
+  if (result.success) {
+    await loadLeaveRequestsFromSheet();
+    
+    loadPendingRequests();
+    bootstrap.Modal.getInstance(document.getElementById('rejectModal')).hide();
+    showToast('error', 'Rejected', 'Leave request has been rejected');
+  }
+  
+  document.getElementById('spinner').classList.remove('show');
+}
+
+// ==================== INITIAL LOAD ====================
+// Modify the DOMContentLoaded event
+document.addEventListener('DOMContentLoaded', function() {
+  updateDateTime();
+  setInterval(updateDateTime, 1000);
+  
+  // Don't load data from localStorage anymore
+  // Just initialize empty arrays
+  employees = [];
+  departments = [];
+  designations = [];
+  leaveTypes = [];
+  leaveRequests = [];
+  leaveBalances = [];
+  
+  updateUserList();
+  
+  // Update notification badge
+  updateNotificationBadge();
+  renderNotifications();
+});
             }
         }
 
@@ -3671,5 +3970,20 @@ async function loadLeaveRequests() {
   return response.json();
 }
     </script>
+    <!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+<!-- Google Sheets API Configuration -->
+<script>
+    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby53zFFfBy5UcMWKlJd2zX_8ggKO5-HF_iwuJvaR7y3fzM_S9vOnu2TfV3Q_69Cm_S3/exec';
+</script>
+
+<!-- Main Application Script -->
+<script src="js/script.js"></script>
 </body>
 </html>
