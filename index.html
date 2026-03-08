@@ -3415,6 +3415,53 @@
             updateNotificationBadge();
             renderNotifications();
         });
+
+// Add this to your HTML as a temporary fix
+function simpleLogin(username, password, role) {
+  // Hardcoded users for testing
+  const testUsers = [
+    { id: 'CLCNFDK01', name: 'Md. Shariful Islam', password: 'emp123', role: 'employee', department: 'Clearing and Forwarding' },
+    { id: 'CLACTDK01', name: 'Mr. Fazlay Rabby', password: 'fazlay321', role: 'manager', department: 'Accounts' },
+    { id: 'NFHRADK01', name: 'Abdullah Al Saki', password: 'hradmin123', role: 'admin', department: 'HR & Admin' }
+  ];
+  
+  const user = testUsers.find(u => u.id === username && u.password === password && u.role === role);
+  
+  if (user) {
+    return {
+      success: true,
+      data: {
+        ID: user.id,
+        Name: user.name,
+        Role: user.role,
+        Department: user.department
+      }
+    };
+  }
+  
+  return { success: false, error: 'Invalid credentials' };
+}
+
+// Modify your handleLogin function to use this temporarily
+async function handleLogin(event) {
+  event.preventDefault();
+  
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+  
+  // Use simple login for testing
+  const result = simpleLogin(username, password, selectedRole);
+  
+  if (result.success) {
+    currentUser = result.data;
+    document.getElementById('loginError').style.display = 'none';
+    showMainApp();
+    loadUserDashboard();
+  } else {
+    document.getElementById('errorMessage').textContent = 'Invalid credentials';
+    document.getElementById('loginError').style.display = 'block';
+  }
+}  
     </script>
 </body>
 </html>
