@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leave Management System - Google Sheets Integration</title>
+    <title>Leave Management System - Employee Portal</title>
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
@@ -12,6 +12,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- DataTables CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
         * {
@@ -977,7 +979,7 @@
             <div class="login-header">
                 <i class="fas fa-calendar-alt"></i>
                 <h2>Leave Management System</h2>
-                <p>Employee & Admin Portal - Google Sheets Backend</p>
+                <p>Employee & Admin Portal</p>
             </div>
             
             <div class="login-body">
@@ -1015,7 +1017,6 @@
                     </button>
                 </form>
                 
-                <div class="user-list" id="userList">
                     </div>
                 </div>
             </div>
@@ -1527,12 +1528,16 @@
                         
                         <div class="mb-3">
                             <label class="form-label">Department</label>
-                            <input type="email" class="form-control" id="empDepartment" required="">
+                            <select class="form-select" id="empDepartment" required="">
+                                <option value="">Select Department</option>
+                            </select>
                         </div>
                         
                         <div class="mb-3">
                             <label class="form-label">Designation</label>
-                            <input type="email" class="form-control" id="empDesignation" required="">
+                            <select class="form-select" id="empDesignation" required="">
+                                <option value="">Select Designation</option>
+                            </select>
                         </div>
                         
                         <div class="mb-3">
@@ -1763,10 +1768,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
     <script>
-        // ==================== GOOGLE SHEETS API CONFIGURATION ====================
-        // IMPORTANT: Replace this URL with your Google Apps Script Web App URL
-        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby53zFFfBy5UcMWKlJd2zX_8ggKO5-HF_iwuJvaR7y3fzM_S9vOnu2TfV3Q_69Cm_S3/exec';
-
         // ==================== DATA STRUCTURES ====================
         let employees = [];
         let departments = [];
@@ -1791,190 +1792,463 @@
         // Current logged in user
         let currentUser = null;
         let selectedRole = 'employee';
-        let currentRejectId = null;
 
-        // ==================== GOOGLE SHEETS API FUNCTIONS ====================
-        async function callGoogleAppsScript(method, params = {}) {
-            // Show loading spinner
-            document.getElementById('spinner').classList.add('show');
+// ==================== GOOGLE SHEETS API CONFIGURATION ====================
+const GOOGLE_APPS_SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE';
+
+// ==================== API FUNCTIONS ====================
+async function callGoogleAppsScript(method, params = {}) {
+  const url = new URL(GOOGLE_APPS_SCRIPT_URL);
+  url.searchParams.append('method', method);
+  
+  // Add all params to URL
+  Object.keys(params).forEach(key => {
+    url.searchParams.append(key, params[key]);
+  });
+  
+  try {
+    const response = await fetch(url.toString());
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('API Error:', error);
+    showToast('error', 'Connection Error', 'Failed to connect to Google Sheets');
+    return { success: false, error: error.toString() };
+  }
+}
+
+// ==================== EMPLOYEE FUNCTIONS ====================
+async function loadEmployeesFromSheet() {
+  const result = await callGoogleAppsScript('getEmployees');
+  if (result.success) {
+    employees = result.data;
+    return employees;
+  }
+  return [];
+}
+
+async function saveEmployeeToSheet(employeeData) {
+  const result = await callGoogleAppsScript('addEmployee', employeeData);
+  if (result.success) {
+    showToast('success', 'Success', result.message);
+    await loadEmployeesFromSheet();
+  } else {
+    showToast('error', 'Error', result.error);
+  }
+  return result;
+}
+
+async function updateEmployeeInSheet(employeeData) {
+  const result = await callGoogleAppsScript('updateEmployee', employeeData);
+  if (result.success) {
+    showToast('success', 'Success', result.message);
+    await loadEmployeesFromSheet();
+  }
+  return result;
+}
+
+async function deleteEmployeeFromSheet(empId) {
+  const result = await callGoogleAppsScript('deleteEmployee', { id: empId });
+  if (result.success) {
+    showToast('warning', 'Deleted', result.message);
+    await loadEmployeesFromSheet();
+  }
+  return result;
+}
+
+// ==================== LEAVE REQUEST FUNCTIONS ====================
+async function loadLeaveRequestsFromSheet(filters = {}) {
+  const result = await callGoogleAppsScript('getLeaveRequests', filters);
+  if (result.success) {
+    leaveRequests = result.data;
+    return leaveRequests;
+  }
+  return [];
+}
+
+async function saveLeaveRequestToSheet(requestData) {
+  const result = await callGoogleAppsScript('addLeaveRequest', requestData);
+  if (result.success) {
+    showToast('success', 'Success', result.message);
+    await loadLeaveRequestsFromSheet();
+  }
+  return result;
+}
+
+async function updateLeaveRequestInSheet(requestData) {
+  const result = await callGoogleAppsScript('updateLeaveRequest', requestData);
+  if (result.success) {
+    await loadLeaveRequestsFromSheet();
+  }
+  return result;
+}
+
+// ==================== LEAVE BALANCE FUNCTIONS ====================
+async function loadLeaveBalancesFromSheet(employeeId = null) {
+  const params = employeeId ? { employeeId: employeeId } : {};
+  const result = await callGoogleAppsScript('getLeaveBalances', params);
+  if (result.success) {
+    leaveBalances = result.data;
+    return leaveBalances;
+  }
+  return [];
+}
+
+async function updateLeaveBalanceInSheet(balanceData) {
+  const result = await callGoogleAppsScript('updateLeaveBalance', balanceData);
+  if (result.success) {
+    await loadLeaveBalancesFromSheet();
+  }
+  return result;
+}
+
+// ==================== DEPARTMENT FUNCTIONS ====================
+async function loadDepartmentsFromSheet() {
+  const result = await callGoogleAppsScript('getDepartments');
+  if (result.success) {
+    departments = result.data;
+    return departments;
+  }
+  return [];
+}
+
+// ==================== DESIGNATION FUNCTIONS ====================
+async function loadDesignationsFromSheet() {
+  const result = await callGoogleAppsScript('getDesignations');
+  if (result.success) {
+    designations = result.data;
+    return designations;
+  }
+  return [];
+}
+
+// ==================== LEAVE TYPES FUNCTIONS ====================
+async function loadLeaveTypesFromSheet() {
+  const result = await callGoogleAppsScript('getLeaveTypes');
+  if (result.success) {
+    leaveTypes = result.data;
+    return leaveTypes;
+  }
+  return [];
+}
+
+// ==================== AUTHENTICATION FUNCTIONS ====================
+async function loginWithGoogleSheets(username, password, role) {
+  const result = await callGoogleAppsScript('login', {
+    username: username,
+    password: password,
+    role: role
+  });
+  
+  if (result.success) {
+    return result.data;
+  } else {
+    throw new Error(result.error);
+  }
+}
+
+// ==================== MODIFIED LOGIN FUNCTION ====================
+async function handleLogin(event) {
+  event.preventDefault();
+  
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+  
+  try {
+    // Show loading
+    document.getElementById('spinner').classList.add('show');
+    
+    const user = await loginWithGoogleSheets(username, password, selectedRole);
+    
+    if (user) {
+      currentUser = user;
+      document.getElementById('loginError').style.display = 'none';
+      
+      // Load all data from Google Sheets
+      await Promise.all([
+        loadEmployeesFromSheet(),
+        loadDepartmentsFromSheet(),
+        loadDesignationsFromSheet(),
+        loadLeaveTypesFromSheet(),
+        loadLeaveRequestsFromSheet(),
+        loadLeaveBalancesFromSheet()
+      ]);
+      
+      showMainApp();
+      loadUserDashboard();
+      
+      // Create welcome notification
+      createNotification(
+        NOTIFICATION_TYPES.INFO,
+        'Login Successful',
+        `Welcome back, ${user.Name}!`,
+        { userId: user.ID }
+      );
+      
+      document.getElementById('spinner').classList.remove('show');
+    }
+  } catch (error) {
+    document.getElementById('spinner').classList.remove('show');
+    document.getElementById('errorMessage').textContent = error.message || 'Invalid credentials';
+    document.getElementById('loginError').style.display = 'block';
+  }
+}
+
+// ==================== MODIFIED SUBMIT LEAVE FUNCTION ====================
+async function submitLeaveApplication() {
+  const leaveType = document.getElementById('leaveType').value;
+  const startDate = document.getElementById('startDate').value;
+  const endDate = document.getElementById('endDate').value;
+  const reason = document.getElementById('reason').value;
+  const contact = document.getElementById('contact').value;
+  const days = parseInt(document.getElementById('totalDays').textContent);
+  
+  if (!leaveType || !startDate || !endDate || !reason) {
+    alert('Please fill in all required fields');
+    return;
+  }
+  
+  if (days === 0) {
+    alert('Please select valid dates');
+    return;
+  }
+  
+  // Check balance
+  const select = document.getElementById('leaveType');
+  const selectedOption = select.options[select.selectedIndex];
+  const balance = parseFloat(selectedOption.getAttribute('data-balance'));
+  
+  if (days > balance) {
+    alert('Insufficient leave balance!');
+    return;
+  }
+  
+  // Show loading
+  document.getElementById('spinner').classList.add('show');
+  
+  // Create new leave request
+  const newRequest = {
+    employeeId: currentUser.ID,
+    employeeName: currentUser.Name,
+    department: currentUser.Department,
+    leaveType: leaveType,
+    startDate: startDate,
+    endDate: endDate,
+    days: days,
+    reason: reason,
+    contact: contact
+  };
+  
+  const result = await saveLeaveRequestToSheet(newRequest);
+  
+  document.getElementById('spinner').classList.remove('show');
+  
+  if (result.success) {
+    // Reset and close
+    resetApplicationForm();
+    document.getElementById('apply-tab').click();
+    
+    showToast('success', 'Success', 'Leave application submitted successfully!');
+    await loadLeaveRequestsFromSheet();
+    await loadLeaveBalancesFromSheet(currentUser.ID);
+    
+    loadMyLeaves();
+    updateStatistics();
+    
+    // Update pending badge if user is manager/admin
+    if (currentUser.role === 'manager' || currentUser.role === 'admin') {
+      loadPendingRequests();
+    }
+  }
+}
+
+// ==================== MODIFIED APPROVE REQUEST FUNCTION ====================
+async function approveRequest(requestId) {
+  if (confirm('Are you sure you want to approve this leave request?')) {
+    document.getElementById('spinner').classList.add('show');
+    
+    const request = leaveRequests.find(r => r.RequestID === requestId);
+    
+    const result = await updateLeaveRequestInSheet({
+      id: requestId,
+      status: 'Approved',
+      approvedBy: currentUser.Name
+    });
+    
+    if (result.success) {
+      // Update leave balance
+      const balance = leaveBalances.find(b => 
+        b.EmployeeID === request.EmployeeID && 
+        b.LeaveType === request.LeaveType
+      );
+      
+      if (balance) {
+        await updateLeaveBalanceInSheet({
+          balanceId: balance.BalanceID,
+          usedDays: (balance.UsedDays || 0) + parseInt(request.Days),
+          availableDays: (balance.TotalDays || 0) - ((balance.UsedDays || 0) + parseInt(request.Days))
+        });
+      }
+      
+      // Refresh data
+      await loadLeaveRequestsFromSheet();
+      await loadLeaveBalancesFromSheet();
+      
+      loadPendingRequests();
+      showToast('success', 'Approved', `Leave request for ${request.EmployeeName} has been approved`);
+    }
+    
+    document.getElementById('spinner').classList.remove('show');
+  }
+}
+
+// ==================== MODIFIED REJECT REQUEST FUNCTION ====================
+async function confirmReject() {
+  const reason = document.getElementById('rejectionReason').value;
+  if (!reason) {
+    alert('Please provide a reason for rejection');
+    return;
+  }
+  
+  document.getElementById('spinner').classList.add('show');
+  
+  const result = await updateLeaveRequestInSheet({
+    id: currentRejectId,
+    status: 'Rejected',
+    rejectReason: reason,
+    rejectedBy: currentUser.Name
+  });
+  
+  if (result.success) {
+    await loadLeaveRequestsFromSheet();
+    
+    loadPendingRequests();
+    bootstrap.Modal.getInstance(document.getElementById('rejectModal')).hide();
+    showToast('error', 'Rejected', 'Leave request has been rejected');
+  }
+  
+  document.getElementById('spinner').classList.remove('show');
+}
+
+// ==================== INITIAL LOAD ====================
+// Modify the DOMContentLoaded event
+document.addEventListener('DOMContentLoaded', function() {
+  updateDateTime();
+  setInterval(updateDateTime, 1000);
+  
+  // Don't load data from localStorage anymore
+  // Just initialize empty arrays
+  employees = [];
+  departments = [];
+  designations = [];
+  leaveTypes = [];
+  leaveRequests = [];
+  leaveBalances = [];
+  
+  updateUserList();
+  
+  // Update notification badge
+  updateNotificationBadge();
+  renderNotifications();
+});
+
+        // ==================== INITIALIZATION ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            updateDateTime();
+            setInterval(updateDateTime, 1000);
             
-            try {
-                const url = new URL(GOOGLE_APPS_SCRIPT_URL);
-                url.searchParams.append('method', method);
-                
-                // Add all params to URL
-                Object.keys(params).forEach(key => {
-                    url.searchParams.append(key, params[key]);
-                });
-                
-                const response = await fetch(url.toString());
-                const data = await response.json();
-                
-                document.getElementById('spinner').classList.remove('show');
-                return data;
-            } catch (error) {
-                document.getElementById('spinner').classList.remove('show');
-                console.error('API Error:', error);
-                showToast('error', 'Connection Error', 'Failed to connect to Google Sheets');
-                return { success: false, error: error.toString() };
+            
+            // If no data in localStorage, initialize with sample data
+            if (employees.length === 0) {
+                initializeSampleData();
+                saveToLocalStorage();
             }
-        }
+            
+            updateUserList();
+            
+            // Update notification badge
+            updateNotificationBadge();
+            renderNotifications();
+        });
 
-        // ==================== EMPLOYEE FUNCTIONS ====================
-        async function loadEmployeesFromSheet() {
-            const result = await callGoogleAppsScript('getEmployees');
-            if (result.success) {
-                employees = result.data;
-                return employees;
-            }
-            return [];
-        }
+        function initializeSampleData() {
+            // Initialize Departments
+            departments = [
+                { id: 'CNF', name: 'Clearing and Forwarding', description: 'C&F' },
+                { id: 'HRA', name: 'HR & Admin', description: 'HR Department' },
+                { id: 'COM', name: 'Commercial', description: 'Trading' },
+                { id: 'ACT', name: 'Accounts', description: 'Accounts and Finance' },
+                { id: 'ADM', name: 'Administration', description: 'Administration' }
+            ];
 
-        async function saveEmployeeToSheet(employeeData) {
-            const result = await callGoogleAppsScript('addEmployee', employeeData);
-            if (result.success) {
-                showToast('success', 'Success', result.message);
-                await loadEmployeesFromSheet();
-            } else {
-                showToast('error', 'Error', result.error);
-            }
-            return result;
-        }
+            // Initialize Designations
+            designations = [
+                { id: 'DESIG001', name: 'Assistant Manager', department: 'Clearing and Forwarding', level: 1 },
+                { id: 'DESIG002', name: 'Deputy Manager', department: 'Clearing and Forwarding', level: 2 },
+                { id: 'DESIG003', name: 'Manager', department: 'Clearing and Forwarding', level: 3 },
+                { id: 'DESIG004', name: 'Assistant Manager', department: 'HR & Admin', level: 1 },
+                { id: 'DESIG005', name: 'Marketing Executive', department: 'Clearing and Forwarding', level: 1 },
+                { id: 'DESIG006', name: 'Manager', department: 'Accounts', level: 3 },
+                { id: 'DESIG007', name: 'Marketing Executive', department: 'Commercial', level: 1 },
+                { id: 'DESIG008', name: 'Deputy Manager', department: 'Commercial', level: 2 },
+                { id: 'DESIG009', name: 'Receptionist', department: 'Administration', level: 1 },
+                { id: 'DESIG010', name: 'Jr. Marketing Executive', department: 'Clearing and Forwarding', level: 1 },
+                { id: 'DESIG011', name: 'Driver', department: 'Administration', level: 1 },
+                { id: 'DESIG012', name: 'Office Assistant', department: 'Administration', level: 1 },
+                { id: 'DESIG013', name: 'Sr. Marketing Executive', department: 'Clearing and Forwarding', level: 2 },
+                { id: 'DESIG014', name: 'Assistant Manager', department: 'Accounts', level: 1 },
+                { id: 'DESIG015', name: 'Accounts Officer', department: 'Accounts', level: 1 },
+                { id: 'DESIG016', name: 'Sr. Accountant', department: 'Accounts', level: 2 },
+                { id: 'DESIG017', name: 'Sr. Accounts Officer', department: 'Accounts', level: 2 }
+            ];
 
-        async function updateEmployeeInSheet(employeeData) {
-            const result = await callGoogleAppsScript('updateEmployee', employeeData);
-            if (result.success) {
-                showToast('success', 'Success', result.message);
-                await loadEmployeesFromSheet();
-            }
-            return result;
-        }
+            // Initialize Leave Types
+            leaveTypes = [
+                { id: 1, name: 'Sick Leave', defaultDays: 15, color: '#ef4444', description: 'Sick Leave' },
+                { id: 2, name: 'Casual Leave', defaultDays: 10, color: '#22c55e', description: 'Casual/emergency Leave' }
+            ];
 
-        async function deleteEmployeeFromSheet(empId) {
-            const result = await callGoogleAppsScript('deleteEmployee', { id: empId });
-            if (result.success) {
-                showToast('warning', 'Deleted', result.message);
-                await loadEmployeesFromSheet();
-            }
-            return result;
-        }
+            // Initialize Employees
+            employees = [
+                { id: 'CLCNFDK01', name: 'Md. Shariful Islam', email: 'shariful@chevronlines.com', password: 'emp123', department: 'Clearing and Forwarding', designation: 'Deputy Manager', role: 'employee', joinDate: '2012-09-15', status: 'Active' },
+                { id: 'CLCNFDK02', name: 'Mr. Pinto Ranjan Das', email: 'pinto@chevronlines.com', password: 'emp123', department: 'Clearing and Forwarding', designation: 'Deputy Manager', role: 'employee', joinDate: '2011-09-05', status: 'Active' },
+                { id: 'NTCOMDK01', name: 'Mr. Moudud Ahmed', email: 'commercial@nastradingbd.com', password: 'emp123', department: 'Commercial', designation: 'Deputy Manager', role: 'employee', joinDate: '2011-07-13', status: 'Active' },
+                { id: 'CLCNFDK03', name: 'Mr. Nasir Uddin', email: 'nasir@chevronlines.com', password: 'emp123', department: 'Clearing and Forwarding', designation: 'Assistant Manager', role: 'employee', joinDate: '2014-08-22', status: 'Active' },
+                { id: 'CLCNFDK10', name: 'Mr. Mamunur Rashid', email: 'mamun@chevronlines.com', password: 'emp123', department: 'Clearing and Forwarding', designation: 'Assistant Manager', role: 'employee', joinDate: '2012-12-23', status: 'Active' },
+                { id: 'CLCNFDK04', name: 'Md. Abdul Halim', email: 'abdulhalim@chevronlines.com', password: 'emp123', department: 'Clearing and Forwarding', designation: 'Assistant Manager', role: 'employee', joinDate: '2016-10-23', status: 'Active' },
+                { id: 'CLACTDK01', name: 'Mr. Fazlay Rabby', email: 'fazlay.rabby@chevronlines.com', password: 'fazlay321', department: 'Accounts', designation: 'Manager', role: 'manager', joinDate: '2016-07-16', status: 'Active' },
+                { id: 'CLCNFDK09', name: 'Mr. Liton Kumar Shil', email: 'liton@chevronlines.com', password: 'liton321', department: 'Clearing and Forwarding', designation: 'Manager', role: 'manager', joinDate: '2004-05-05', status: 'Active' },
+                { id: 'CLADMDK07', name: 'Ms. Sharmin Akter', email: 'info@chevronlines.com', password: 'sharmin321', department: 'Administration', designation: 'Receptionist', role: 'employee', joinDate: '2026-02-08', status: 'Active' },
+                { id: 'CLCNFCTG02', name: 'Mr. Abu Sayeed Toha', email: 'toha@chevronlines.com', password: 'toha321', department: 'Clearing and Forwarding', designation: 'Assistant Manager', role: 'employee', joinDate: '2013-04-13', status: 'Active' },
+                { id: 'CLCNFCTG01', name: 'Mr. Romen Mojumder', email: 'romen@chevronlines.com', password: 'romen321', department: 'Clearing and Forwarding', designation: 'Manager', role: 'manager', joinDate: '2013-04-13', status: 'Active' },
+                { id: 'NFHRADK01', name: 'Abdullah Al Saki', email: 'saki@nasfreightsbd.com', password: 'hradmin123', department: 'HR & Admin', designation: 'Assistant Manager', role: 'admin', joinDate: '2017-01-01', status: 'Active' }
+            ];
 
-        // ==================== LEAVE REQUEST FUNCTIONS ====================
-        async function loadLeaveRequestsFromSheet(filters = {}) {
-            const result = await callGoogleAppsScript('getLeaveRequests', filters);
-            if (result.success) {
-                leaveRequests = result.data;
-                return leaveRequests;
-            }
-            return [];
-        }
-
-        async function saveLeaveRequestToSheet(requestData) {
-            const result = await callGoogleAppsScript('addLeaveRequest', requestData);
-            if (result.success) {
-                showToast('success', 'Success', result.message);
-                await loadLeaveRequestsFromSheet();
-            }
-            return result;
-        }
-
-        async function updateLeaveRequestInSheet(requestData) {
-            const result = await callGoogleAppsScript('updateLeaveRequest', requestData);
-            if (result.success) {
-                await loadLeaveRequestsFromSheet();
-            }
-            return result;
-        }
-
-        // ==================== LEAVE BALANCE FUNCTIONS ====================
-        async function loadLeaveBalancesFromSheet(employeeId = null) {
-            const params = employeeId ? { employeeId: employeeId } : {};
-            const result = await callGoogleAppsScript('getLeaveBalances', params);
-            if (result.success) {
-                leaveBalances = result.data;
-                return leaveBalances;
-            }
-            return [];
-        }
-
-        async function updateLeaveBalanceInSheet(balanceData) {
-            const result = await callGoogleAppsScript('updateLeaveBalance', balanceData);
-            if (result.success) {
-                await loadLeaveBalancesFromSheet();
-            }
-            return result;
-        }
-
-        // ==================== DEPARTMENT FUNCTIONS ====================
-        async function loadDepartmentsFromSheet() {
-            const result = await callGoogleAppsScript('getDepartments');
-            if (result.success) {
-                departments = result.data;
-                return departments;
-            }
-            return [];
-        }
-
-        async function saveDepartmentToSheet(deptData) {
-            const result = await callGoogleAppsScript('addDepartment', deptData);
-            if (result.success) {
-                showToast('success', 'Success', result.message);
-                await loadDepartmentsFromSheet();
-            }
-            return result;
-        }
-
-        // ==================== DESIGNATION FUNCTIONS ====================
-        async function loadDesignationsFromSheet() {
-            const result = await callGoogleAppsScript('getDesignations');
-            if (result.success) {
-                designations = result.data;
-                return designations;
-            }
-            return [];
-        }
-
-        async function saveDesignationToSheet(desigData) {
-            const result = await callGoogleAppsScript('addDesignation', desigData);
-            if (result.success) {
-                showToast('success', 'Success', result.message);
-                await loadDesignationsFromSheet();
-            }
-            return result;
-        }
-
-        // ==================== LEAVE TYPES FUNCTIONS ====================
-        async function loadLeaveTypesFromSheet() {
-            const result = await callGoogleAppsScript('getLeaveTypes');
-            if (result.success) {
-                leaveTypes = result.data;
-                return leaveTypes;
-            }
-            return [];
-        }
-
-        async function saveLeaveTypeToSheet(typeData) {
-            const result = await callGoogleAppsScript('addLeaveType', typeData);
-            if (result.success) {
-                showToast('success', 'Success', result.message);
-                await loadLeaveTypesFromSheet();
-            }
-            return result;
-        }
-
-        // ==================== AUTHENTICATION FUNCTIONS ====================
-        async function loginWithGoogleSheets(username, password, role) {
-            const result = await callGoogleAppsScript('login', {
-                username: username,
-                password: password,
-                role: role
+            // Initialize Leave Balances
+            leaveBalances = [];
+            employees.forEach(emp => {
+                if (emp.role !== 'admin') {
+                    leaveTypes.forEach(type => {
+                        const used = Math.floor(Math.random() * (type.defaultDays / 2));
+                        leaveBalances.push({
+                            id: `BAL${emp.id}${type.id}`,
+                            employeeId: emp.id,
+                            employeeName: emp.name,
+                            leaveType: type.name,
+                            totalDays: type.defaultDays,
+                            usedDays: used,
+                            availableDays: type.defaultDays - used,
+                            color: type.color
+                        });
+                    });
+                }
             });
+
+            // Initialize Leave Requests (empty array for fresh start)
+            leaveRequests = [];
             
-            if (result.success) {
-                return result.data;
-            } else {
-                throw new Error(result.error);
-            }
+            // Initialize Notifications (empty array)
+            notifications = [];
         }
 
         // ==================== NOTIFICATION FUNCTIONS ====================
@@ -1992,6 +2266,11 @@
             };
             
             notifications.unshift(notification);
+            
+            // Save to localStorage
+            localStorage.setItem('hr_notifications', JSON.stringify(notifications));
+            localStorage.setItem('hr_notificationId', notificationId.toString());
+            
             updateNotificationBadge();
             renderNotifications();
             
@@ -2004,10 +2283,12 @@
         function getNotificationsForCurrentUser() {
             if (!currentUser) return [];
             
+            // Admin sees all notifications
             if (currentUser.role === 'admin') {
                 return notifications;
             }
             
+            // Manager sees notifications for their department and general notifications
             return notifications.filter(n => 
                 !n.userId || 
                 n.userId === currentUser.id ||
@@ -2020,11 +2301,12 @@
         function updateNotificationBadge() {
             const userNotifications = getNotificationsForCurrentUser();
             const unreadCount = userNotifications.filter(n => !n.read).length;
-            const badge = document.getElementById('notificationBadge');
+            document.getElementById('notificationBadge').textContent = unreadCount;
             
-            if (badge) {
-                badge.textContent = unreadCount;
-                badge.style.display = unreadCount === 0 ? 'none' : 'flex';
+            if (unreadCount === 0) {
+                document.getElementById('notificationBadge').style.display = 'none';
+            } else {
+                document.getElementById('notificationBadge').style.display = 'flex';
             }
         }
 
@@ -2067,26 +2349,37 @@
 
         function getNotificationIcon(type) {
             switch(type) {
-                case NOTIFICATION_TYPES.LEAVE_APPLIED: return 'fa-paper-plane';
-                case NOTIFICATION_TYPES.LEAVE_APPROVED: return 'fa-check-circle';
-                case NOTIFICATION_TYPES.LEAVE_REJECTED: return 'fa-times-circle';
-                case NOTIFICATION_TYPES.LEAVE_CANCELLED: return 'fa-ban';
-                default: return 'fa-bell';
+                case NOTIFICATION_TYPES.LEAVE_APPLIED:
+                    return 'fa-paper-plane';
+                case NOTIFICATION_TYPES.LEAVE_APPROVED:
+                    return 'fa-check-circle';
+                case NOTIFICATION_TYPES.LEAVE_REJECTED:
+                    return 'fa-times-circle';
+                case NOTIFICATION_TYPES.LEAVE_CANCELLED:
+                    return 'fa-ban';
+                default:
+                    return 'fa-bell';
             }
         }
 
         function getNotificationColor(type) {
             switch(type) {
-                case NOTIFICATION_TYPES.LEAVE_APPLIED: return '#3b82f6';
-                case NOTIFICATION_TYPES.LEAVE_APPROVED: return '#10b981';
-                case NOTIFICATION_TYPES.LEAVE_REJECTED: return '#ef4444';
-                case NOTIFICATION_TYPES.LEAVE_CANCELLED: return '#f59e0b';
-                default: return '#6b7280';
+                case NOTIFICATION_TYPES.LEAVE_APPLIED:
+                    return '#3b82f6';
+                case NOTIFICATION_TYPES.LEAVE_APPROVED:
+                    return '#10b981';
+                case NOTIFICATION_TYPES.LEAVE_REJECTED:
+                    return '#ef4444';
+                case NOTIFICATION_TYPES.LEAVE_CANCELLED:
+                    return '#f59e0b';
+                default:
+                    return '#6b7280';
             }
         }
 
         function getTimeAgo(date) {
             const seconds = Math.floor((new Date() - date) / 1000);
+            
             if (seconds < 60) return 'just now';
             if (seconds < 3600) return Math.floor(seconds / 60) + ' minutes ago';
             if (seconds < 86400) return Math.floor(seconds / 3600) + ' hours ago';
@@ -2102,6 +2395,7 @@
             const notification = notifications.find(n => n.id === notificationId);
             if (notification) {
                 notification.read = true;
+                localStorage.setItem('hr_notifications', JSON.stringify(notifications));
                 updateNotificationBadge();
                 renderNotifications();
             }
@@ -2109,6 +2403,7 @@
 
         function markAllAsRead() {
             notifications.forEach(n => n.read = true);
+            localStorage.setItem('hr_notifications', JSON.stringify(notifications));
             updateNotificationBadge();
             renderNotifications();
             showToast('info', 'Notifications', 'All notifications marked as read');
@@ -2116,6 +2411,7 @@
 
         function clearAllNotifications() {
             notifications = notifications.filter(n => n.read === false);
+            localStorage.setItem('hr_notifications', JSON.stringify(notifications));
             updateNotificationBadge();
             renderNotifications();
             showToast('info', 'Notifications', 'Read notifications cleared');
@@ -2164,6 +2460,7 @@
         function setRole(role) {
             selectedRole = role;
             
+            // Update active button
             document.getElementById('empRoleBtn').classList.remove('active');
             document.getElementById('mgrRoleBtn').classList.remove('active');
             document.getElementById('adminRoleBtn').classList.remove('active');
@@ -2184,24 +2481,9 @@
 
         function updateUserList() {
             const container = document.getElementById('userButtons');
-            if (!container) return;
-            
             container.innerHTML = '';
             
-            // Sample users for demo - in production, these would come from Google Sheets
-            const demoUsers = [
-                { id: 'CLCNFDK01', name: 'Md. Shariful Islam', role: 'employee', password: 'emp123' },
-                { id: 'CLCNFDK02', name: 'Mr. Pinto Ranjan Das', role: 'employee', password: 'emp123' },
-                { id: 'NTCOMDK01', name: 'Moudud Ahmed', role: 'employee', password: 'emp123' },
-                { id: 'CLACTDK01', name: 'Mr. Fazlay Rabby', role: 'manager', password: 'fazlay321' },
-                { id: 'CLCNFDK09', name: 'Mr. Liton Kumar Shil', role: 'manager', password: 'liton321' },
-                { id: 'CLCNFCTG01', name: 'Romen Mojumder', role: 'employee', password: 'romen123' },
-                { id: 'CLCNFCTG01', name: 'Md. Abu Sayeed Toha', role: 'employee', password: 'toha321' },
-                { id: 'CLADMDK07', name: 'Ms. Sharmin Akter', role: 'employee', password: 'sharmin321' },
-                { id: 'NFHRADK01', name: 'Abdullah Al Saki', role: 'admin', password: 'hradmin123' }
-            ];
-            
-            const filteredUsers = demoUsers.filter(user => user.role === selectedRole);
+            const filteredUsers = employees.filter(emp => emp.role === selectedRole);
             
             filteredUsers.forEach(user => {
                 const btn = document.createElement('button');
@@ -2217,41 +2499,34 @@
             document.getElementById('password').value = password;
         }
 
-        async function handleLogin(event) {
+        function handleLogin(event) {
             event.preventDefault();
             
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             
-            try {
-                const user = await loginWithGoogleSheets(username, password, selectedRole);
+            // Find user
+            const user = employees.find(emp => 
+                (emp.id === username || emp.email === username) && 
+                emp.password === password && 
+                emp.role === selectedRole
+            );
+            
+            if (user) {
+                currentUser = user;
+                document.getElementById('loginError').style.display = 'none';
+                showMainApp();
+                loadUserDashboard();
                 
-                if (user) {
-                    currentUser = user;
-                    document.getElementById('loginError').style.display = 'none';
-                    
-                    // Load all data from Google Sheets
-                    await Promise.all([
-                        loadEmployeesFromSheet(),
-                        loadDepartmentsFromSheet(),
-                        loadDesignationsFromSheet(),
-                        loadLeaveTypesFromSheet(),
-                        loadLeaveRequestsFromSheet(),
-                        loadLeaveBalancesFromSheet()
-                    ]);
-                    
-                    showMainApp();
-                    loadUserDashboard();
-                    
-                    createNotification(
-                        NOTIFICATION_TYPES.INFO,
-                        'Login Successful',
-                        `Welcome back, ${user.Name}!`,
-                        { userId: user.ID }
-                    );
-                }
-            } catch (error) {
-                document.getElementById('errorMessage').textContent = error.message || 'Invalid credentials';
+                // Create welcome notification
+                createNotification(
+                    NOTIFICATION_TYPES.INFO,
+                    'Login Successful',
+                    `Welcome back, ${user.name}!`,
+                    { userId: user.id }
+                );
+            } else {
+                document.getElementById('errorMessage').textContent = 'Invalid credentials or role mismatch';
                 document.getElementById('loginError').style.display = 'block';
             }
         }
@@ -2271,41 +2546,49 @@
 
         // ==================== USER DASHBOARD ====================
         function loadUserDashboard() {
-            document.getElementById('displayName').textContent = currentUser.Name;
-            document.getElementById('displayId').textContent = currentUser.ID;
-            document.getElementById('welcomeMessage').textContent = `Welcome, ${currentUser.Name.split(' ')[0]}!`;
-            document.getElementById('userDepartment').textContent = currentUser.Department;
+            // Update header
+            document.getElementById('displayName').textContent = currentUser.name;
+            document.getElementById('displayId').textContent = currentUser.id;
+            document.getElementById('welcomeMessage').textContent = `Welcome, ${currentUser.name.split(' ')[0]}!`;
+            document.getElementById('userDepartment').textContent = currentUser.department;
             
+            // Update avatar
             const avatar = document.getElementById('userAvatar');
-            avatar.textContent = currentUser.Name.split(' ').map(n => n[0]).join('');
+            avatar.textContent = currentUser.name.split(' ').map(n => n[0]).join('');
             avatar.style.background = currentUser.role === 'admin' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 
                                     (currentUser.role === 'manager' ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 
                                     'linear-gradient(135deg, #10b981 0%, #059669 100%)');
             
+            // Update role badge
             const roleBadge = document.getElementById('userRoleBadge');
-            roleBadge.textContent = currentUser.Role?.charAt(0).toUpperCase() + currentUser.Role?.slice(1) || 'Employee';
-            roleBadge.className = `role-badge ${currentUser.Role || 'employee'}`;
+            roleBadge.textContent = currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1);
+            roleBadge.className = `role-badge ${currentUser.role}`;
             
+            // Show/hide tabs based on role
             document.getElementById('pendingTab').style.display = 
-                (currentUser.Role === 'manager' || currentUser.Role === 'admin') ? 'block' : 'none';
+                (currentUser.role === 'manager' || currentUser.role === 'admin') ? 'block' : 'none';
             document.getElementById('adminTab').style.display = 
-                currentUser.Role === 'admin' ? 'block' : 'none';
+                currentUser.role === 'admin' ? 'block' : 'none';
             
+            // Load data
             updateStatistics();
             loadLeaveBalance();
             loadRecentActivity();
             loadMyLeaves();
             loadLeaveTypesForApply();
             
-            if (currentUser.Role === 'manager' || currentUser.Role === 'admin') {
+            if (currentUser.role === 'manager' || currentUser.role === 'admin') {
                 loadPendingRequests();
             }
             
-            if (currentUser.Role === 'admin') {
+            if (currentUser.role === 'admin') {
                 loadAdminData();
             }
             
+            // Update quick actions
             updateQuickActions();
+            
+            // Update notification badge
             updateNotificationBadge();
             renderNotifications();
         }
@@ -2314,7 +2597,7 @@
             const container = document.getElementById('quickActions');
             container.innerHTML = '';
             
-            if (currentUser.Role === 'employee') {
+            if (currentUser.role === 'employee') {
                 container.innerHTML = `
                     <button class="quick-action-btn" onclick="document.getElementById('apply-tab').click()">
                         <i class="fas fa-pen"></i> Apply Leave
@@ -2326,7 +2609,7 @@
                         <i class="fas fa-sync-alt"></i> Refresh
                     </button>
                 `;
-            } else if (currentUser.Role === 'manager') {
+            } else if (currentUser.role === 'manager') {
                 container.innerHTML = `
                     <button class="quick-action-btn" onclick="document.getElementById('pending-tab').click()">
                         <i class="fas fa-clock"></i> Pending (${getPendingCount()})
@@ -2359,11 +2642,11 @@
         function updateStatistics() {
             const statsContainer = document.getElementById('statsCards');
             
-            if (currentUser.Role === 'employee') {
-                const userLeaves = leaveRequests.filter(l => l.EmployeeID === currentUser.ID);
-                const approved = userLeaves.filter(l => l.Status === 'Approved').length;
-                const pending = userLeaves.filter(l => l.Status === 'Pending').length;
-                const totalDays = userLeaves.reduce((sum, l) => sum + parseInt(l.Days || 0), 0);
+            if (currentUser.role === 'employee') {
+                const userLeaves = leaveRequests.filter(l => l.employeeId === currentUser.id);
+                const approved = userLeaves.filter(l => l.status === 'Approved').length;
+                const pending = userLeaves.filter(l => l.status === 'Pending').length;
+                const totalDays = userLeaves.reduce((sum, l) => sum + l.days, 0);
                 
                 statsContainer.innerHTML = `
                     <div class="col-xl-3 col-md-6">
@@ -2404,9 +2687,9 @@
                     </div>
                 `;
             } else {
-                const totalEmployees = employees.filter(e => e.Role !== 'admin').length;
-                const pendingCount = leaveRequests.filter(l => l.Status === 'Pending').length;
-                const approvedCount = leaveRequests.filter(l => l.Status === 'Approved').length;
+                const totalEmployees = employees.filter(e => e.role !== 'admin').length;
+                const pendingCount = leaveRequests.filter(l => l.status === 'Pending').length;
+                const approvedCount = leaveRequests.filter(l => l.status === 'Approved').length;
                 const totalRequests = leaveRequests.length;
                 
                 statsContainer.innerHTML = `
@@ -2450,11 +2733,12 @@
             }
         }
 
+        // ==================== LEAVE BALANCE FUNCTIONS ====================
         function loadLeaveBalance() {
             const container = document.getElementById('leaveBalanceContainer');
             container.innerHTML = '';
             
-            const userBalances = leaveBalances.filter(b => b.EmployeeID === currentUser.ID);
+            const userBalances = leaveBalances.filter(b => b.employeeId === currentUser.id);
             
             if (userBalances.length === 0) {
                 container.innerHTML = '<p class="text-muted text-center">No leave balance data available</p>';
@@ -2464,23 +2748,23 @@
             let totalAvailable = 0;
             
             userBalances.forEach(balance => {
-                const percentage = (parseInt(balance.UsedDays || 0) / parseInt(balance.TotalDays || 1)) * 100;
-                totalAvailable += parseInt(balance.AvailableDays || 0);
+                const percentage = (balance.usedDays / balance.totalDays) * 100;
+                totalAvailable += balance.availableDays;
                 
                 container.innerHTML += `
                     <div class="balance-item">
                         <div class="balance-info">
-                            <span class="balance-label">${balance.LeaveType}</span>
-                            <span class="balance-values">${balance.UsedDays || 0}/${balance.TotalDays || 0} days</span>
+                            <span class="balance-label">${balance.leaveType}</span>
+                            <span class="balance-values">${balance.usedDays}/${balance.totalDays} days</span>
                         </div>
                         <div class="progress">
                             <div class="progress-bar" role="progressbar" 
-                                 style="width: ${percentage}%; background: ${balance.Color || '#4f46e5'}"
+                                 style="width: ${percentage}%; background: ${balance.color}"
                                  aria-valuenow="${percentage}" aria-valuemin="0" aria-valuemax="100">
                             </div>
                         </div>
                         <div class="text-end mt-1">
-                            <small class="text-muted">Available: ${balance.AvailableDays || 0} days</small>
+                            <small class="text-muted">Available: ${balance.availableDays} days</small>
                         </div>
                     </div>
                 `;
@@ -2495,16 +2779,17 @@
             `;
         }
 
+        // ==================== LEAVE APPLICATION FUNCTIONS ====================
         function loadLeaveTypesForApply() {
             const select = document.getElementById('leaveType');
             select.innerHTML = '<option value="">Select Leave Type</option>';
             
-            const userBalances = leaveBalances.filter(b => b.EmployeeID === currentUser.ID);
+            const userBalances = leaveBalances.filter(b => b.employeeId === currentUser.id);
             
             userBalances.forEach(balance => {
-                if (parseInt(balance.AvailableDays || 0) > 0) {
-                    select.innerHTML += `<option value="${balance.LeaveType}" data-balance="${balance.AvailableDays || 0}" data-color="${balance.Color || '#4f46e5'}">
-                        ${balance.LeaveType} (${balance.AvailableDays || 0} days left)
+                if (balance.availableDays > 0) {
+                    select.innerHTML += `<option value="${balance.leaveType}" data-balance="${balance.availableDays}" data-color="${balance.color}">
+                        ${balance.leaveType} (${balance.availableDays} days left)
                     </option>`;
                 }
             });
@@ -2538,6 +2823,7 @@
                     return;
                 }
                 
+                // Calculate working days (excluding weekends)
                 let days = 0;
                 let current = new Date(start);
                 
@@ -2551,6 +2837,7 @@
                 
                 document.getElementById('totalDays').textContent = days;
                 
+                // Check balance
                 const select = document.getElementById('leaveType');
                 const selectedOption = select.options[select.selectedIndex];
                 
@@ -2575,7 +2862,7 @@
             document.getElementById('availableBalance').value = '';
         }
 
-        async function submitLeaveApplication() {
+        function submitLeaveApplication() {
             const leaveType = document.getElementById('leaveType').value;
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
@@ -2593,81 +2880,127 @@
                 return;
             }
             
+            // Check balance
             const select = document.getElementById('leaveType');
             const selectedOption = select.options[select.selectedIndex];
             const balance = parseFloat(selectedOption.getAttribute('data-balance'));
+            const color = selectedOption.getAttribute('data-color');
             
             if (days > balance) {
                 alert('Insufficient leave balance!');
                 return;
             }
             
+            // Create new leave request
             const newRequest = {
-                employeeId: currentUser.ID,
-                employeeName: currentUser.Name,
-                department: currentUser.Department,
+                id: 'REQ' + (leaveRequests.length + 1).toString().padStart(3, '0'),
+                employeeId: currentUser.id,
+                employeeName: currentUser.name,
+                department: currentUser.department,
                 leaveType: leaveType,
                 startDate: startDate,
                 endDate: endDate,
                 days: days,
                 reason: reason,
-                contact: contact
+                contact: contact,
+                status: 'Pending',
+                appliedOn: new Date().toISOString().split('T')[0],
+                color: color
             };
             
-            const result = await saveLeaveRequestToSheet(newRequest);
+            leaveRequests.push(newRequest);
             
-            if (result.success) {
-                resetApplicationForm();
-                document.getElementById('apply-tab').click();
-                
-                showToast('success', 'Success', 'Leave application submitted successfully!');
-                await loadLeaveRequestsFromSheet();
-                await loadLeaveBalancesFromSheet(currentUser.ID);
-                
-                loadMyLeaves();
-                updateStatistics();
-                
-                if (currentUser.Role === 'manager' || currentUser.Role === 'admin') {
-                    loadPendingRequests();
-                }
+            // Save to localStorage
+            saveToLocalStorage();
+            
+            // Create notification for employee (confirmation)
+            createNotification(
+                NOTIFICATION_TYPES.LEAVE_APPLIED,
+                'Leave Application Submitted',
+                `Your ${leaveType} request for ${days} days has been submitted successfully.`,
+                { userId: currentUser.id }
+            );
+            
+            // Find manager for this department
+            const manager = employees.find(emp => 
+                emp.role === 'manager' && emp.department === currentUser.department
+            );
+            
+            // Create notification for manager
+            if (manager) {
+                createNotification(
+                    NOTIFICATION_TYPES.LEAVE_APPLIED,
+                    'New Leave Application',
+                    `${currentUser.name} has applied for ${days} days ${leaveType} leave.`,
+                    { 
+                        userId: manager.id,
+                        employeeId: currentUser.id,
+                        department: currentUser.department
+                    }
+                );
+            }
+            
+            // Create notification for admin
+            const admin = employees.find(emp => emp.role === 'admin');
+            if (admin) {
+                createNotification(
+                    NOTIFICATION_TYPES.LEAVE_APPLIED,
+                    'New Leave Application (Admin)',
+                    `${currentUser.name} (${currentUser.department}) has applied for ${days} days ${leaveType} leave.`,
+                    { userId: admin.id, forRole: 'admin' }
+                );
+            }
+            
+            // Reset and close
+            resetApplicationForm();
+            document.getElementById('apply-tab').click();
+            
+            showToast('success', 'Success', 'Leave application submitted successfully!');
+            loadMyLeaves();
+            updateStatistics();
+            
+            // Update pending badge if user is manager/admin
+            if (currentUser.role === 'manager' || currentUser.role === 'admin') {
+                loadPendingRequests();
             }
         }
 
+        // ==================== MY LEAVES FUNCTIONS ====================
         function loadMyLeaves() {
             const tbody = document.getElementById('myLeavesBody');
             tbody.innerHTML = '';
             
-            const userLeaves = leaveRequests.filter(l => l.EmployeeID === currentUser.ID)
-                .sort((a, b) => new Date(b.AppliedOn || b.appliedOn) - new Date(a.AppliedOn || a.appliedOn));
+            const userLeaves = leaveRequests.filter(l => l.employeeId === currentUser.id)
+                .sort((a, b) => new Date(b.appliedOn) - new Date(a.appliedOn));
             
             userLeaves.forEach(leave => {
-                const statusClass = getStatusClass(leave.Status);
-                const leaveType = leaveTypes.find(t => t.Name === leave.LeaveType);
-                const color = leaveType ? leaveType.Color : '#4f46e5';
+                const statusClass = getStatusClass(leave.status);
+                const leaveType = leaveTypes.find(t => t.name === leave.leaveType);
+                const color = leaveType ? leaveType.color : '#4f46e5';
                 
                 tbody.innerHTML += `
                     <tr>
-                        <td><span class="fw-600">${leave.RequestID || leave.id}</span></td>
+                        <td><span class="fw-600">${leave.id}</span></td>
                         <td>
                             <span class="badge" style="background: ${color}20; color: ${color}">
-                                ${leave.LeaveType}
+                                ${leave.leaveType}
                             </span>
                         </td>
-                        <td>${formatDate(leave.StartDate || leave.startDate)} - ${formatDate(leave.EndDate || leave.endDate)}</td>
-                        <td><span class="badge bg-info">${leave.Days || leave.days} days</span></td>
+                        <td>${formatDate(leave.startDate)} - ${formatDate(leave.endDate)}</td>
+                        <td><span class="badge bg-info">${leave.days} days</span></td>
                         <td>
-                            <span data-bs-toggle="tooltip" title="${leave.Reason || leave.reason}">
-                                ${(leave.Reason || leave.reason || '').substring(0, 20)}...
+                            <span data-bs-toggle="tooltip" title="${leave.reason}">
+                                ${leave.reason.substring(0, 20)}...
                             </span>
                         </td>
-                        <td>${formatDate(leave.AppliedOn || leave.appliedOn)}</td>
-                        <td><span class="badge bg-${statusClass}">${leave.Status}</span></td>
+                        <td>${formatDate(leave.appliedOn)}</td>
+                        <td><span class="badge bg-${statusClass}">${leave.status}</span></td>
                         <td>
-                            <button class="btn btn-sm btn-info" onclick="viewRequestDetails('${leave.RequestID || leave.id}')">
+                            <button class="btn btn-sm btn-info" onclick="viewRequestDetails('${leave.id}')">
                                 <i class="fas fa-eye"></i>
                             </button>
-                            ${leave.Status === 'Pending' ? 
-                                `<button class="btn btn-sm btn-danger" onclick="cancelRequest('${leave.RequestID || leave.id}')">
+                            ${leave.status === 'Pending' ? 
+                                `<button class="btn btn-sm btn-danger" onclick="cancelRequest('${leave.id}')">
                                     <i class="fas fa-times"></i>
                                 </button>` : ''}
                         </td>
@@ -2680,61 +3013,60 @@
             const tbody = document.getElementById('recentActivityBody');
             tbody.innerHTML = '';
             
-            const userLeaves = leaveRequests.filter(l => l.EmployeeID === currentUser.ID)
-                .sort((a, b) => new Date(b.AppliedOn || b.appliedOn) - new Date(a.AppliedOn || a.appliedOn))
+            const userLeaves = leaveRequests.filter(l => l.employeeId === currentUser.id)
+                .sort((a, b) => new Date(b.appliedOn) - new Date(a.appliedOn))
                 .slice(0, 5);
             
             userLeaves.forEach(leave => {
-                const statusClass = getStatusClass(leave.Status);
+                const statusClass = getStatusClass(leave.status);
                 
                 tbody.innerHTML += `
                     <tr>
-                        <td>${formatDate(leave.AppliedOn || leave.appliedOn)}</td>
-                        <td>${leave.LeaveType}</td>
-                        <td>${leave.Days || leave.days}</td>
-                        <td><span class="badge bg-${statusClass}">${leave.Status}</span></td>
+                        <td>${formatDate(leave.appliedOn)}</td>
+                        <td>${leave.leaveType}</td>
+                        <td>${leave.days}</td>
+                        <td><span class="badge bg-${statusClass}">${leave.status}</span></td>
                     </tr>
                 `;
             });
         }
 
-        async function cancelRequest(requestId) {
+        function cancelRequest(requestId) {
             if (confirm('Are you sure you want to cancel this request?')) {
-                const request = leaveRequests.find(r => (r.RequestID || r.id) === requestId);
+                const request = leaveRequests.find(r => r.id === requestId);
                 if (request) {
-                    const result = await updateLeaveRequestInSheet({
-                        id: requestId,
-                        status: 'Cancelled'
-                    });
+                    request.status = 'Cancelled';
                     
-                    if (result.success) {
-                        createNotification(
-                            NOTIFICATION_TYPES.LEAVE_CANCELLED,
-                            'Leave Request Cancelled',
-                            `Your ${request.LeaveType} request has been cancelled.`,
-                            { userId: currentUser.ID }
-                        );
-                        
-                        await loadLeaveRequestsFromSheet();
-                        loadMyLeaves();
-                        showToast('info', 'Request Cancelled', 'Your leave request has been cancelled');
-                    }
+                    // Save to localStorage
+                    saveToLocalStorage();
+                    
+                    // Create notification for cancellation
+                    createNotification(
+                        NOTIFICATION_TYPES.LEAVE_CANCELLED,
+                        'Leave Request Cancelled',
+                        `Your ${request.leaveType} request has been cancelled.`,
+                        { userId: currentUser.id }
+                    );
+                    
+                    loadMyLeaves();
+                    showToast('info', 'Request Cancelled', 'Your leave request has been cancelled');
                 }
             }
         }
 
+        // ==================== PENDING REQUESTS (Manager/Admin) ====================
         function loadPendingRequests() {
             const tbody = document.getElementById('pendingBody');
             tbody.innerHTML = '';
             
             let pending = [];
             
-            if (currentUser.Role === 'admin') {
-                pending = leaveRequests.filter(l => l.Status === 'Pending');
-            } else if (currentUser.Role === 'manager') {
+            if (currentUser.role === 'admin') {
+                pending = leaveRequests.filter(l => l.status === 'Pending');
+            } else if (currentUser.role === 'manager') {
                 pending = leaveRequests.filter(l => 
-                    l.Status === 'Pending' && 
-                    l.Department === currentUser.Department
+                    l.status === 'Pending' && 
+                    l.department === currentUser.department
                 );
             }
             
@@ -2742,44 +3074,44 @@
             document.getElementById('pendingCount').textContent = pending.length + ' Pending';
             
             pending.forEach(request => {
-                const leaveType = leaveTypes.find(t => t.Name === request.LeaveType);
-                const color = leaveType ? leaveType.Color : '#4f46e5';
+                const leaveType = leaveTypes.find(t => t.name === request.leaveType);
+                const color = leaveType ? leaveType.color : '#4f46e5';
                 
                 tbody.innerHTML += `
                     <tr>
                         <td>
                             <div class="d-flex align-items-center">
                                 <div class="avatar-circle me-2" style="background: ${color}20; color: ${color}">
-                                    ${(request.EmployeeName || '').charAt(0)}
+                                    ${request.employeeName.charAt(0)}
                                 </div>
                                 <div>
-                                    <div class="fw-600">${request.EmployeeName}</div>
-                                    <small class="text-muted">${request.EmployeeID}</small>
+                                    <div class="fw-600">${request.employeeName}</div>
+                                    <small class="text-muted">${request.employeeId}</small>
                                 </div>
                             </div>
                         </td>
-                        <td>${request.Department}</td>
+                        <td>${request.department}</td>
                         <td>
                             <span class="badge" style="background: ${color}20; color: ${color}">
-                                ${request.LeaveType}
+                                ${request.leaveType}
                             </span>
                         </td>
-                        <td>${formatDate(request.StartDate)} - ${formatDate(request.EndDate)}</td>
-                        <td><span class="badge bg-info">${request.Days} days</span></td>
+                        <td>${formatDate(request.startDate)} - ${formatDate(request.endDate)}</td>
+                        <td><span class="badge bg-info">${request.days} days</span></td>
                         <td>
-                            <span data-bs-toggle="tooltip" title="${request.Reason}">
-                                ${(request.Reason || '').substring(0, 25)}...
+                            <span data-bs-toggle="tooltip" title="${request.reason}">
+                                ${request.reason.substring(0, 25)}...
                             </span>
                         </td>
-                        <td>${formatDate(request.AppliedOn)}</td>
+                        <td>${formatDate(request.appliedOn)}</td>
                         <td class="action-buttons">
-                            <button class="btn btn-sm btn-success" onclick="approveRequest('${request.RequestID}')">
+                            <button class="btn btn-sm btn-success" onclick="approveRequest('${request.id}')">
                                 <i class="fas fa-check"></i>
                             </button>
-                            <button class="btn btn-sm btn-danger" onclick="openRejectModal('${request.RequestID}')">
+                            <button class="btn btn-sm btn-danger" onclick="openRejectModal('${request.id}')">
                                 <i class="fas fa-times"></i>
                             </button>
-                            <button class="btn btn-sm btn-info" onclick="viewRequestDetails('${request.RequestID}')">
+                            <button class="btn btn-sm btn-info" onclick="viewRequestDetails('${request.id}')">
                                 <i class="fas fa-eye"></i>
                             </button>
                         </td>
@@ -2789,49 +3121,67 @@
         }
 
         function getPendingCount() {
-            if (currentUser.Role === 'admin') {
-                return leaveRequests.filter(l => l.Status === 'Pending').length;
-            } else if (currentUser.Role === 'manager') {
+            if (currentUser.role === 'admin') {
+                return leaveRequests.filter(l => l.status === 'Pending').length;
+            } else if (currentUser.role === 'manager') {
                 return leaveRequests.filter(l => 
-                    l.Status === 'Pending' && 
-                    l.Department === currentUser.Department
+                    l.status === 'Pending' && 
+                    l.department === currentUser.department
                 ).length;
             }
             return 0;
         }
 
-        async function approveRequest(requestId) {
+        function approveRequest(requestId) {
             if (confirm('Are you sure you want to approve this leave request?')) {
-                const request = leaveRequests.find(r => r.RequestID === requestId);
-                
-                const result = await updateLeaveRequestInSheet({
-                    id: requestId,
-                    status: 'Approved',
-                    approvedBy: currentUser.Name
-                });
-                
-                if (result.success) {
+                const request = leaveRequests.find(r => r.id === requestId);
+                if (request) {
+                    request.status = 'Approved';
+                    request.approvedBy = currentUser.name;
+                    request.approvedOn = new Date().toISOString().split('T')[0];
+                    
+                    // Update leave balance
                     const balance = leaveBalances.find(b => 
-                        b.EmployeeID === request.EmployeeID && 
-                        b.LeaveType === request.LeaveType
+                        b.employeeId === request.employeeId && 
+                        b.leaveType === request.leaveType
                     );
                     
                     if (balance) {
-                        await updateLeaveBalanceInSheet({
-                            balanceId: balance.BalanceID,
-                            usedDays: (parseInt(balance.UsedDays) || 0) + parseInt(request.Days),
-                            availableDays: (parseInt(balance.TotalDays) || 0) - ((parseInt(balance.UsedDays) || 0) + parseInt(request.Days))
-                        });
+                        balance.usedDays += request.days;
+                        balance.availableDays = balance.totalDays - balance.usedDays;
                     }
                     
-                    await loadLeaveRequestsFromSheet();
-                    await loadLeaveBalancesFromSheet();
+                    // Save to localStorage
+                    saveToLocalStorage();
+                    
+                    // Create notification for employee
+                    createNotification(
+                        NOTIFICATION_TYPES.LEAVE_APPROVED,
+                        'Leave Request Approved',
+                        `Your ${request.leaveType} request for ${request.days} days has been approved by ${currentUser.name}.`,
+                        { userId: request.employeeId }
+                    );
+                    
+                    // Create notification for admin if approver is manager
+                    if (currentUser.role === 'manager') {
+                        const admin = employees.find(emp => emp.role === 'admin');
+                        if (admin) {
+                            createNotification(
+                                NOTIFICATION_TYPES.LEAVE_APPROVED,
+                                'Leave Request Approved',
+                                `${request.employeeName}'s ${request.leaveType} request was approved by ${currentUser.name}.`,
+                                { userId: admin.id, forRole: 'admin' }
+                            );
+                        }
+                    }
                     
                     loadPendingRequests();
-                    showToast('success', 'Approved', `Leave request for ${request.EmployeeName} has been approved`);
+                    showToast('success', 'Request Approved', `Leave request for ${request.employeeName} has been approved`);
                 }
             }
         }
+
+        let currentRejectId = null;
 
         function openRejectModal(requestId) {
             currentRejectId = requestId;
@@ -2839,54 +3189,76 @@
             new bootstrap.Modal(document.getElementById('rejectModal')).show();
         }
 
-        async function confirmReject() {
+        function confirmReject() {
             const reason = document.getElementById('rejectionReason').value;
             if (!reason) {
                 alert('Please provide a reason for rejection');
                 return;
             }
             
-            const result = await updateLeaveRequestInSheet({
-                id: currentRejectId,
-                status: 'Rejected',
-                rejectReason: reason,
-                rejectedBy: currentUser.Name
-            });
-            
-            if (result.success) {
-                await loadLeaveRequestsFromSheet();
+            const request = leaveRequests.find(r => r.id === currentRejectId);
+            if (request) {
+                request.status = 'Rejected';
+                request.rejectionReason = reason;
+                request.rejectedBy = currentUser.name;
+                request.rejectedOn = new Date().toISOString().split('T')[0];
+                
+                // Save to localStorage
+                saveToLocalStorage();
+                
+                // Create notification for employee
+                createNotification(
+                    NOTIFICATION_TYPES.LEAVE_REJECTED,
+                    'Leave Request Rejected',
+                    `Your ${request.leaveType} request has been rejected. Reason: ${reason}`,
+                    { userId: request.employeeId }
+                );
+                
+                // Create notification for admin if rejector is manager
+                if (currentUser.role === 'manager') {
+                    const admin = employees.find(emp => emp.role === 'admin');
+                    if (admin) {
+                        createNotification(
+                            NOTIFICATION_TYPES.LEAVE_REJECTED,
+                            'Leave Request Rejected',
+                            `${request.employeeName}'s ${request.leaveType} request was rejected by ${currentUser.name}. Reason: ${reason}`,
+                            { userId: admin.id, forRole: 'admin' }
+                        );
+                    }
+                }
+                
                 loadPendingRequests();
                 bootstrap.Modal.getInstance(document.getElementById('rejectModal')).hide();
-                showToast('error', 'Rejected', 'Leave request has been rejected');
+                showToast('error', 'Request Rejected', `Leave request for ${request.employeeName} has been rejected`);
             }
         }
 
         function viewRequestDetails(requestId) {
-            const request = leaveRequests.find(r => r.RequestID === requestId);
+            const request = leaveRequests.find(r => r.id === requestId);
             if (!request) return;
             
-            const leaveType = leaveTypes.find(t => t.Name === request.LeaveType);
-            const color = leaveType ? leaveType.Color : '#4f46e5';
+            const leaveType = leaveTypes.find(t => t.name === request.leaveType);
+            const color = leaveType ? leaveType.color : '#4f46e5';
             
             let detailsHtml = `
                 <table class="table table-sm">
-                    <tr><th>Request ID:</th><td>${request.RequestID}</td></tr>
-                    <tr><th>Employee:</th><td>${request.EmployeeName}</td></tr>
-                    <tr><th>Department:</th><td>${request.Department}</td></tr>
-                    <tr><th>Leave Type:</th><td><span class="badge" style="background: ${color}20; color: ${color}">${request.LeaveType}</span></td></tr>
-                    <tr><th>Duration:</th><td>${formatDate(request.StartDate)} to ${formatDate(request.EndDate)}</td></tr>
-                    <tr><th>Days:</th><td>${request.Days}</td></tr>
-                    <tr><th>Reason:</th><td>${request.Reason}</td></tr>
-                    <tr><th>Applied On:</th><td>${formatDate(request.AppliedOn)}</td></tr>
-                    <tr><th>Status:</th><td><span class="badge bg-${getStatusClass(request.Status)}">${request.Status}</span></td></tr>
+                    <tr><th>Request ID:</th><td>${request.id}</td></tr>
+                    <tr><th>Employee:</th><td>${request.employeeName}</td></tr>
+                    <tr><th>Department:</th><td>${request.department}</td></tr>
+                    <tr><th>Leave Type:</th><td><span class="badge" style="background: ${color}20; color: ${color}">${request.leaveType}</span></td></tr>
+                    <tr><th>Duration:</th><td>${formatDate(request.startDate)} to ${formatDate(request.endDate)}</td></tr>
+                    <tr><th>Days:</th><td>${request.days}</td></tr>
+                    <tr><th>Reason:</th><td>${request.reason}</td></tr>
+                    <tr><th>Applied On:</th><td>${formatDate(request.appliedOn)}</td></tr>
+                    <tr><th>Status:</th><td><span class="badge bg-${getStatusClass(request.status)}">${request.status}</span></td></tr>
             `;
             
-            if (request.ApprovedBy) {
-                detailsHtml += `<tr><th>Approved By:</th><td>${request.ApprovedBy} on ${formatDate(request.ApprovedOn)}</td></tr>`;
+            if (request.approvedBy) {
+                detailsHtml += `<tr><th>Approved By:</th><td>${request.approvedBy} on ${formatDate(request.approvedOn)}</td></tr>`;
             }
             
-            if (request.RejectReason) {
-                detailsHtml += `<tr><th>Rejection Reason:</th><td>${request.RejectReason}</td></tr>`;
+            if (request.rejectionReason) {
+                detailsHtml += `<tr><th>Rejection Reason:</th><td>${request.rejectionReason}</td></tr>`;
             }
             
             detailsHtml += '</table>';
@@ -2912,17 +3284,17 @@
             employees.forEach(emp => {
                 tbody.innerHTML += `
                     <tr>
-                        <td>${emp.ID}</td>
-                        <td>${emp.Name}</td>
-                        <td>${emp.Email}</td>
-                        <td>${emp.Department}</td>
-                        <td>${emp.Designation}</td>
-                        <td><span class="badge bg-${emp.Status === 'Active' ? 'success' : 'secondary'}">${emp.Status || 'Active'}</span></td>
+                        <td>${emp.id}</td>
+                        <td>${emp.name}</td>
+                        <td>${emp.email}</td>
+                        <td>${emp.department}</td>
+                        <td>${emp.designation}</td>
+                        <td><span class="badge bg-${emp.status === 'Active' ? 'success' : 'secondary'}">${emp.status}</span></td>
                         <td>
-                            <button class="btn btn-sm btn-info" onclick="editEmployee('${emp.ID}')">
+                            <button class="btn btn-sm btn-info" onclick="editEmployee('${emp.id}')">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteEmployee('${emp.ID}')">
+                            <button class="btn btn-sm btn-danger" onclick="deleteEmployee('${emp.id}')">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </td>
@@ -2938,14 +3310,14 @@
             departments.forEach(dept => {
                 tbody.innerHTML += `
                     <tr>
-                        <td>${dept.ID}</td>
-                        <td>${dept.Name}</td>
-                        <td>${dept.Description || ''}</td>
+                        <td>${dept.id}</td>
+                        <td>${dept.name}</td>
+                        <td>${dept.description || ''}</td>
                         <td>
-                            <button class="btn btn-sm btn-info" onclick="editDepartment('${dept.ID}')">
+                            <button class="btn btn-sm btn-info" onclick="editDepartment('${dept.id}')">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteDepartment('${dept.ID}')">
+                            <button class="btn btn-sm btn-danger" onclick="deleteDepartment('${dept.id}')">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </td>
@@ -2961,15 +3333,15 @@
             designations.forEach(desig => {
                 tbody.innerHTML += `
                     <tr>
-                        <td>${desig.ID}</td>
-                        <td>${desig.Name}</td>
-                        <td>${desig.Department}</td>
-                        <td>Level ${desig.Level}</td>
+                        <td>${desig.id}</td>
+                        <td>${desig.name}</td>
+                        <td>${desig.department}</td>
+                        <td>Level ${desig.level}</td>
                         <td>
-                            <button class="btn btn-sm btn-info" onclick="editDesignation('${desig.ID}')">
+                            <button class="btn btn-sm btn-info" onclick="editDesignation('${desig.id}')">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteDesignation('${desig.ID}')">
+                            <button class="btn btn-sm btn-danger" onclick="deleteDesignation('${desig.id}')">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </td>
@@ -2985,19 +3357,19 @@
             leaveTypes.forEach(type => {
                 tbody.innerHTML += `
                     <tr>
-                        <td>${type.ID}</td>
+                        <td>${type.id}</td>
                         <td>
-                            <span class="badge" style="background: ${type.Color}20; color: ${type.Color}">
-                                ${type.Name}
+                            <span class="badge" style="background: ${type.color}20; color: ${type.color}">
+                                ${type.name}
                             </span>
                         </td>
-                        <td>${type.DefaultDays} days</td>
-                        <td><span style="display:inline-block; width:20px; height:20px; background:${type.Color}; border-radius:4px;"></span> ${type.Color}</td>
+                        <td>${type.defaultDays} days</td>
+                        <td><span style="display:inline-block; width:20px; height:20px; background:${type.color}; border-radius:4px;"></span> ${type.color}</td>
                         <td>
-                            <button class="btn btn-sm btn-info" onclick="editLeaveType(${type.ID})">
+                            <button class="btn btn-sm btn-info" onclick="editLeaveType(${type.id})">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteLeaveType(${type.ID})">
+                            <button class="btn btn-sm btn-danger" onclick="deleteLeaveType(${type.id})">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </td>
@@ -3013,13 +3385,13 @@
             leaveBalances.forEach(balance => {
                 tbody.innerHTML += `
                     <tr>
-                        <td>${balance.EmployeeName}</td>
-                        <td>${balance.LeaveType}</td>
-                        <td>${balance.TotalDays}</td>
-                        <td>${balance.UsedDays}</td>
-                        <td class="fw-600" style="color: ${balance.Color}">${balance.AvailableDays}</td>
+                        <td>${balance.employeeName}</td>
+                        <td>${balance.leaveType}</td>
+                        <td>${balance.totalDays}</td>
+                        <td>${balance.usedDays}</td>
+                        <td class="fw-600" style="color: ${balance.color}">${balance.availableDays}</td>
                         <td>
-                            <button class="btn btn-sm btn-primary" onclick="editBalance('${balance.BalanceID}')">
+                            <button class="btn btn-sm btn-primary" onclick="editBalance('${balance.id}')">
                                 <i class="fas fa-edit"></i>
                             </button>
                         </td>
@@ -3029,39 +3401,35 @@
         }
 
         function populateAdminDropdowns() {
+            // Employee department dropdown
             const deptSelect = document.getElementById('empDepartment');
-            if (deptSelect) {
-                deptSelect.innerHTML = '<option value="">Select Department</option>';
-                departments.forEach(dept => {
-                    deptSelect.innerHTML += `<option value="${dept.Name}">${dept.Name}</option>`;
-                });
-            }
+            deptSelect.innerHTML = '<option value="">Select Department</option>';
+            departments.forEach(dept => {
+                deptSelect.innerHTML += `<option value="${dept.name}">${dept.name}</option>`;
+            });
             
+            // Employee designation dropdown
             const desigSelect = document.getElementById('empDesignation');
-            if (desigSelect) {
-                desigSelect.innerHTML = '<option value="">Select Designation</option>';
-                designations.forEach(desig => {
-                    desigSelect.innerHTML += `<option value="${desig.Name}">${desig.Name}</option>`;
-                });
-            }
+            desigSelect.innerHTML = '<option value="">Select Designation</option>';
+            designations.forEach(desig => {
+                desigSelect.innerHTML += `<option value="${desig.name}">${desig.name}</option>`;
+            });
             
+            // Designation department dropdown
             const desigDeptSelect = document.getElementById('desigDepartment');
-            if (desigDeptSelect) {
-                desigDeptSelect.innerHTML = '<option value="">Select Department</option>';
-                departments.forEach(dept => {
-                    desigDeptSelect.innerHTML += `<option value="${dept.Name}">${dept.Name}</option>`;
-                });
-            }
+            desigDeptSelect.innerHTML = '<option value="">Select Department</option>';
+            departments.forEach(dept => {
+                desigDeptSelect.innerHTML += `<option value="${dept.name}">${dept.name}</option>`;
+            });
             
+            // Balance filter dropdown
             const filterSelect = document.getElementById('balanceEmployeeFilter');
-            if (filterSelect) {
-                filterSelect.innerHTML = '<option value="">All Employees</option>';
-                employees.forEach(emp => {
-                    if (emp.Role !== 'admin') {
-                        filterSelect.innerHTML += `<option value="${emp.ID}">${emp.Name}</option>`;
-                    }
-                });
-            }
+            filterSelect.innerHTML = '<option value="">All Employees</option>';
+            employees.forEach(emp => {
+                if (emp.role !== 'admin') {
+                    filterSelect.innerHTML += `<option value="${emp.id}">${emp.name}</option>`;
+                }
+            });
         }
 
         // Employee CRUD
@@ -3074,24 +3442,24 @@
         }
 
         function editEmployee(empId) {
-            const emp = employees.find(e => e.ID === empId);
+            const emp = employees.find(e => e.id === empId);
             if (!emp) return;
             
             document.getElementById('employeeModalTitle').textContent = 'Edit Employee';
-            document.getElementById('employeeId').value = emp.ID;
-            document.getElementById('empName').value = emp.Name;
-            document.getElementById('empId').value = emp.ID;
-            document.getElementById('empEmail').value = emp.Email;
-            document.getElementById('empPassword').value = emp.Password;
-            document.getElementById('empDepartment').value = emp.Department;
-            document.getElementById('empDesignation').value = emp.Designation;
-            document.getElementById('empRole').value = emp.Role;
-            document.getElementById('empJoinDate').value = emp.JoinDate;
+            document.getElementById('employeeId').value = emp.id;
+            document.getElementById('empName').value = emp.name;
+            document.getElementById('empId').value = emp.id;
+            document.getElementById('empEmail').value = emp.email;
+            document.getElementById('empPassword').value = emp.password;
+            document.getElementById('empDepartment').value = emp.department;
+            document.getElementById('empDesignation').value = emp.designation;
+            document.getElementById('empRole').value = emp.role;
+            document.getElementById('empJoinDate').value = emp.joinDate;
             
             new bootstrap.Modal(document.getElementById('employeeModal')).show();
         }
 
-        async function saveEmployee() {
+        function saveEmployee() {
             const empId = document.getElementById('employeeId').value;
             const empData = {
                 name: document.getElementById('empName').value,
@@ -3111,25 +3479,63 @@
             }
             
             if (empId) {
-                await updateEmployeeInSheet(empData);
+                // Update existing
+                const index = employees.findIndex(e => e.id === empId);
+                if (index !== -1) {
+                    employees[index] = { ...employees[index], ...empData };
+                    createNotification(NOTIFICATION_TYPES.INFO, 'Employee Updated', `Employee ${empData.name} updated successfully`);
+                }
             } else {
-                if (employees.some(e => e.ID === empData.id)) {
+                // Check if employee ID already exists
+                if (employees.some(e => e.id === empData.id)) {
                     alert('Employee ID already exists');
                     return;
                 }
-                await saveEmployeeToSheet(empData);
+                
+                // Add new
+                employees.push(empData);
+                
+                // Create leave balances for new employee
+                leaveTypes.forEach(type => {
+                    leaveBalances.push({
+                        id: `BAL${empData.id}${type.id}`,
+                        employeeId: empData.id,
+                        employeeName: empData.name,
+                        leaveType: type.name,
+                        totalDays: type.defaultDays,
+                        usedDays: 0,
+                        availableDays: type.defaultDays,
+                        color: type.color
+                    });
+                });
+                
+                createNotification(NOTIFICATION_TYPES.INFO, 'New Employee Added', `Employee ${empData.name} has been added to the system`);
             }
+            
+            // Save to localStorage
+            saveToLocalStorage();
             
             bootstrap.Modal.getInstance(document.getElementById('employeeModal')).hide();
             loadEmployeesTable();
             populateAdminDropdowns();
+            showToast('success', 'Success', 'Employee saved successfully!');
         }
 
-        async function deleteEmployee(empId) {
+        function deleteEmployee(empId) {
             if (confirm('Are you sure you want to delete this employee? This will also delete all their leave data.')) {
-                await deleteEmployeeFromSheet(empId);
+                const employee = employees.find(e => e.id === empId);
+                employees = employees.filter(e => e.id !== empId);
+                leaveBalances = leaveBalances.filter(b => b.employeeId !== empId);
+                leaveRequests = leaveRequests.filter(r => r.employeeId !== empId);
+                
+                // Save to localStorage
+                saveToLocalStorage();
+                
                 loadEmployeesTable();
                 populateAdminDropdowns();
+                
+                createNotification(NOTIFICATION_TYPES.INFO, 'Employee Deleted', `Employee ${employee.name} has been removed from the system`);
+                showToast('warning', 'Employee Deleted', `Employee ${employee.name} has been deleted`);
             }
         }
 
@@ -3140,7 +3546,8 @@
             new bootstrap.Modal(document.getElementById('departmentModal')).show();
         }
 
-        async function saveDepartment() {
+        function saveDepartment() {
+            const deptId = document.getElementById('deptId').value;
             const deptData = {
                 name: document.getElementById('deptName').value,
                 description: document.getElementById('deptDesc').value
@@ -3151,10 +3558,41 @@
                 return;
             }
             
-            await saveDepartmentToSheet(deptData);
+            if (deptId) {
+                // Update existing
+                const index = departments.findIndex(d => d.id === deptId);
+                if (index !== -1) {
+                    departments[index] = { ...departments[index], ...deptData };
+                }
+            } else {
+                // Add new
+                const newId = 'DEPT' + (departments.length + 1).toString().padStart(3, '0');
+                departments.push({
+                    id: newId,
+                    ...deptData
+                });
+            }
+            
+            // Save to localStorage
+            saveToLocalStorage();
+            
             bootstrap.Modal.getInstance(document.getElementById('departmentModal')).hide();
             loadDepartmentsTable();
             populateAdminDropdowns();
+            showToast('success', 'Success', 'Department saved successfully!');
+        }
+
+        function deleteDepartment(deptId) {
+            if (confirm('Are you sure you want to delete this department?')) {
+                const dept = departments.find(d => d.id === deptId);
+                departments = departments.filter(d => d.id !== deptId);
+                
+                // Save to localStorage
+                saveToLocalStorage();
+                
+                loadDepartmentsTable();
+                showToast('warning', 'Department Deleted', `Department ${dept.name} has been deleted`);
+            }
         }
 
         // Designation CRUD
@@ -3164,7 +3602,8 @@
             new bootstrap.Modal(document.getElementById('designationModal')).show();
         }
 
-        async function saveDesignation() {
+        function saveDesignation() {
+            const desigId = document.getElementById('desigId').value;
             const desigData = {
                 name: document.getElementById('desigName').value,
                 department: document.getElementById('desigDepartment').value,
@@ -3176,10 +3615,41 @@
                 return;
             }
             
-            await saveDesignationToSheet(desigData);
+            if (desigId) {
+                // Update existing
+                const index = designations.findIndex(d => d.id === desigId);
+                if (index !== -1) {
+                    designations[index] = { ...designations[index], ...desigData };
+                }
+            } else {
+                // Add new
+                const newId = 'DESIG' + (designations.length + 1).toString().padStart(3, '0');
+                designations.push({
+                    id: newId,
+                    ...desigData
+                });
+            }
+            
+            // Save to localStorage
+            saveToLocalStorage();
+            
             bootstrap.Modal.getInstance(document.getElementById('designationModal')).hide();
             loadDesignationsTable();
             populateAdminDropdowns();
+            showToast('success', 'Success', 'Designation saved successfully!');
+        }
+
+        function deleteDesignation(desigId) {
+            if (confirm('Are you sure you want to delete this designation?')) {
+                const desig = designations.find(d => d.id === desigId);
+                designations = designations.filter(d => d.id !== desigId);
+                
+                // Save to localStorage
+                saveToLocalStorage();
+                
+                loadDesignationsTable();
+                showToast('warning', 'Designation Deleted', `Designation ${desig.name} has been deleted`);
+            }
         }
 
         // Leave Type CRUD
@@ -3190,7 +3660,8 @@
             new bootstrap.Modal(document.getElementById('leaveTypeModal')).show();
         }
 
-        async function saveLeaveType() {
+        function saveLeaveType() {
+            const typeId = document.getElementById('leaveTypeId').value;
             const typeData = {
                 name: document.getElementById('typeName').value,
                 defaultDays: parseInt(document.getElementById('typeDays').value),
@@ -3203,28 +3674,101 @@
                 return;
             }
             
-            await saveLeaveTypeToSheet(typeData);
+            if (typeId) {
+                // Update existing
+                const index = leaveTypes.findIndex(t => t.id == typeId);
+                if (index !== -1) {
+                    const oldDays = leaveTypes[index].defaultDays;
+                    leaveTypes[index] = { ...leaveTypes[index], ...typeData };
+                    
+                    // Update all balances with new default days
+                    leaveBalances.forEach(balance => {
+                        if (balance.leaveType === typeData.name) {
+                            const difference = typeData.defaultDays - oldDays;
+                            balance.totalDays = typeData.defaultDays;
+                            balance.availableDays += difference;
+                        }
+                    });
+                }
+            } else {
+                // Add new
+                const newId = leaveTypes.length + 1;
+                const newType = {
+                    id: newId,
+                    ...typeData
+                };
+                leaveTypes.push(newType);
+                
+                // Create balances for all employees
+                employees.forEach(emp => {
+                    if (emp.role !== 'admin') {
+                        leaveBalances.push({
+                            id: `BAL${emp.id}${newId}`,
+                            employeeId: emp.id,
+                            employeeName: emp.name,
+                            leaveType: typeData.name,
+                            totalDays: typeData.defaultDays,
+                            usedDays: 0,
+                            availableDays: typeData.defaultDays,
+                            color: typeData.color
+                        });
+                    }
+                });
+            }
+            
+            // Save to localStorage
+            saveToLocalStorage();
+            
             bootstrap.Modal.getInstance(document.getElementById('leaveTypeModal')).hide();
             loadLeaveTypesTable();
             loadBalancesTable();
+            showToast('success', 'Success', 'Leave type saved successfully!');
+        }
+
+        function editLeaveType(typeId) {
+            const type = leaveTypes.find(t => t.id == typeId);
+            if (!type) return;
+            
+            document.getElementById('leaveTypeId').value = type.id;
+            document.getElementById('typeName').value = type.name;
+            document.getElementById('typeDays').value = type.defaultDays;
+            document.getElementById('typeColor').value = type.color;
+            document.getElementById('typeDesc').value = type.description || '';
+            
+            new bootstrap.Modal(document.getElementById('leaveTypeModal')).show();
+        }
+
+        function deleteLeaveType(typeId) {
+            if (confirm('Are you sure you want to delete this leave type? This will affect all employee balances.')) {
+                const type = leaveTypes.find(t => t.id == typeId);
+                leaveTypes = leaveTypes.filter(t => t.id != typeId);
+                leaveBalances = leaveBalances.filter(b => b.leaveType !== type.name);
+                
+                // Save to localStorage
+                saveToLocalStorage();
+                
+                loadLeaveTypesTable();
+                loadBalancesTable();
+                showToast('warning', 'Leave Type Deleted', `Leave type ${type.name} has been deleted`);
+            }
         }
 
         // Balance Management
         function editBalance(balanceId) {
-            const balance = leaveBalances.find(b => b.BalanceID === balanceId);
+            const balance = leaveBalances.find(b => b.id === balanceId);
             if (!balance) return;
             
-            document.getElementById('balanceId').value = balance.BalanceID;
-            document.getElementById('balanceEmployee').value = balance.EmployeeName;
-            document.getElementById('balanceLeaveType').value = balance.LeaveType;
-            document.getElementById('balanceTotal').value = balance.TotalDays;
-            document.getElementById('balanceUsed').value = balance.UsedDays;
-            document.getElementById('balanceAvailable').value = balance.AvailableDays;
+            document.getElementById('balanceId').value = balance.id;
+            document.getElementById('balanceEmployee').value = balance.employeeName;
+            document.getElementById('balanceLeaveType').value = balance.leaveType;
+            document.getElementById('balanceTotal').value = balance.totalDays;
+            document.getElementById('balanceUsed').value = balance.usedDays;
+            document.getElementById('balanceAvailable').value = balance.availableDays;
             
             new bootstrap.Modal(document.getElementById('balanceModal')).show();
         }
 
-        async function saveBalance() {
+        function saveBalance() {
             const balanceId = document.getElementById('balanceId').value;
             const total = parseInt(document.getElementById('balanceTotal').value);
             const used = parseInt(document.getElementById('balanceUsed').value);
@@ -3234,25 +3778,26 @@
                 return;
             }
             
-            const result = await updateLeaveBalanceInSheet({
-                balanceId: balanceId,
-                totalDays: total,
-                usedDays: used,
-                availableDays: total - used
-            });
-            
-            if (result.success) {
-                bootstrap.Modal.getInstance(document.getElementById('balanceModal')).hide();
-                loadBalancesTable();
-                showToast('success', 'Balance Updated', 'Leave balance updated successfully!');
+            const balance = leaveBalances.find(b => b.id === balanceId);
+            if (balance) {
+                balance.totalDays = total;
+                balance.usedDays = used;
+                balance.availableDays = total - used;
             }
+            
+            // Save to localStorage
+            saveToLocalStorage();
+            
+            bootstrap.Modal.getInstance(document.getElementById('balanceModal')).hide();
+            loadBalancesTable();
+            showToast('success', 'Balance Updated', 'Leave balance updated successfully!');
         }
 
         function filterBalances() {
             const filter = document.getElementById('balanceEmployeeFilter').value;
             
             if (filter) {
-                const filteredBalances = leaveBalances.filter(b => b.EmployeeID === filter);
+                const filteredBalances = leaveBalances.filter(b => b.employeeId === filter);
                 displayFilteredBalances(filteredBalances);
             } else {
                 loadBalancesTable();
@@ -3266,13 +3811,13 @@
             balances.forEach(balance => {
                 tbody.innerHTML += `
                     <tr>
-                        <td>${balance.EmployeeName}</td>
-                        <td>${balance.LeaveType}</td>
-                        <td>${balance.TotalDays}</td>
-                        <td>${balance.UsedDays}</td>
-                        <td class="fw-600" style="color: ${balance.Color}">${balance.AvailableDays}</td>
+                        <td>${balance.employeeName}</td>
+                        <td>${balance.leaveType}</td>
+                        <td>${balance.totalDays}</td>
+                        <td>${balance.usedDays}</td>
+                        <td class="fw-600" style="color: ${balance.color}">${balance.availableDays}</td>
                         <td>
-                            <button class="btn btn-sm btn-primary" onclick="editBalance('${balance.BalanceID}')">
+                            <button class="btn btn-sm btn-primary" onclick="editBalance('${balance.id}')">
                                 <i class="fas fa-edit"></i>
                             </button>
                         </td>
@@ -3283,26 +3828,26 @@
 
         // ==================== EXPORT FUNCTIONS ====================
         function exportMyLeaves() {
-            const userLeaves = leaveRequests.filter(l => l.EmployeeID === currentUser.ID);
+            const userLeaves = leaveRequests.filter(l => l.employeeId === currentUser.id);
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.json_to_sheet(userLeaves);
             XLSX.utils.book_append_sheet(wb, ws, 'My Leaves');
             
             const date = new Date().toISOString().split('T')[0];
-            const filename = `${currentUser.Name.replace(' ', '_')}_leaves_${date}.xlsx`;
+            const filename = `${currentUser.name.replace(' ', '_')}_leaves_${date}.xlsx`;
             XLSX.writeFile(wb, filename);
             
             showToast('success', 'Export Complete', 'Leaves exported successfully!');
         }
 
         function exportTeamLeaves() {
-            const teamLeaves = leaveRequests.filter(l => l.Department === currentUser.Department);
+            const teamLeaves = leaveRequests.filter(l => l.department === currentUser.department);
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.json_to_sheet(teamLeaves);
             XLSX.utils.book_append_sheet(wb, ws, 'Team Leaves');
             
             const date = new Date().toISOString().split('T')[0];
-            const filename = `${currentUser.Department}_team_leaves_${date}.xlsx`;
+            const filename = `${currentUser.department}_team_leaves_${date}.xlsx`;
             XLSX.writeFile(wb, filename);
             
             showToast('success', 'Export Complete', 'Team leaves exported successfully!');
@@ -3331,17 +3876,17 @@
             
             months.forEach((month, index) => {
                 const monthRequests = leaveRequests.filter(r => {
-                    const date = new Date(r.AppliedOn);
+                    const date = new Date(r.appliedOn);
                     return date.getMonth() === index;
                 });
                 
                 reportData.push({
                     Month: month + ' 2024',
                     'Total Requests': monthRequests.length,
-                    Approved: monthRequests.filter(r => r.Status === 'Approved').length,
-                    Pending: monthRequests.filter(r => r.Status === 'Pending').length,
-                    Rejected: monthRequests.filter(r => r.Status === 'Rejected').length,
-                    'Total Days': monthRequests.reduce((sum, r) => sum + (parseInt(r.Days) || 0), 0)
+                    Approved: monthRequests.filter(r => r.status === 'Approved').length,
+                    Pending: monthRequests.filter(r => r.status === 'Pending').length,
+                    Rejected: monthRequests.filter(r => r.status === 'Rejected').length,
+                    'Total Days': monthRequests.reduce((sum, r) => sum + r.days, 0)
                 });
             });
             
@@ -3364,7 +3909,6 @@
         }
 
         function formatDate(dateString) {
-            if (!dateString) return '';
             const date = new Date(dateString);
             return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         }
@@ -3379,21 +3923,15 @@
             }
         }
 
-        async function refreshData() {
+        // ==================== NAVIGATION FUNCTIONS ====================
+        function refreshData() {
             document.getElementById('spinner').classList.add('show');
             
-            await Promise.all([
-                loadEmployeesFromSheet(),
-                loadDepartmentsFromSheet(),
-                loadDesignationsFromSheet(),
-                loadLeaveTypesFromSheet(),
-                loadLeaveRequestsFromSheet(),
-                loadLeaveBalancesFromSheet()
-            ]);
-            
-            loadUserDashboard();
-            document.getElementById('spinner').classList.remove('show');
-            showToast('info', 'Refreshed', 'Data refreshed successfully!');
+            setTimeout(() => {
+                loadUserDashboard();
+                document.getElementById('spinner').classList.remove('show');
+                showToast('info', 'Refreshed', 'Data refreshed successfully!');
+            }, 500);
         }
 
         // Close notification panel when clicking outside
@@ -3405,69 +3943,28 @@
                 panel.classList.remove('show');
             }
         });
-
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            updateDateTime();
-            setInterval(updateDateTime, 1000);
-            updateUserList();
-            updateNotificationBadge();
-            renderNotifications();
-        });
-
-function simpleLogin(username, password, role) {
-  // Hardcoded users for testing
-  const testUsers = [
-                { id: 'CLCNFDK01', name: 'Md. Shariful Islam', email: 'shariful@chevronlines.com', password: 'emp123', department: 'C&F', designation: 'Deputy Manager', role: 'employee', joinDate: '2012-09-15', status: 'Active' },
-                { id: 'CLCNFDK02', name: 'Mr. Pinto Ranjan Das', email: 'pinto@chevronlines.com', password: 'emp123', department: 'C&F', designation: 'Deputy Manager', role: 'employee', joinDate: '2011-09-05', status: 'Active' },
-                { id: 'NTCOMDK01', name: 'Mr. Moudud Ahmed', email: 'commercial@nastradingbd.com', password: 'emp123', department: 'Commercial', designation: 'Deputy Manager', role: 'employee', joinDate: '2011-07-13', status: 'Active' },
-                { id: 'CLCNFDK03', name: 'Mr. Nasir Uddin', email: 'nasir@chevronlines.com', password: 'emp123', department: 'C&F', designation: 'Assistant Manager', role: 'employee', joinDate: '2014-08-22', status: 'Active' },
-                { id: 'CLCNFDK10', name: 'Mr. Mamunur Rashid', email: 'mamun@chevronlines.com', password: 'emp123', department: 'C&F', designation: 'Assistant Manager', role: 'employee', joinDate: '2012-12-23', status: 'Active' },
-                { id: 'CLCNFDK04', name: 'Md. Abdul Halim', email: 'abdulhalim@chevronlines.com', password: 'emp123', department: 'C&F', designation: 'Assistant Manager', role: 'employee', joinDate: '2016-10-23', status: 'Active' },
-                { id: 'CLACTDK01', name: 'Mr. Fazlay Rabby', email: 'fazlay.rabby@chevronlines.com', password: 'fazlay321', department: 'Accounts & Finance', designation: 'Manager, Finance', role: 'manager', joinDate: '2016-07-16', status: 'Active' },
-                { id: 'CLCNFDK09', name: 'Mr. Liton Kumar Shil', email: 'liton@chevronlines.com', password: 'liton321', department: 'C&F', designation: 'Manager', role: 'manager', joinDate: '2004-05-05', status: 'Active' },
-                { id: 'CLADMDK07', name: 'Ms. Sharmin Akter', email: 'info@chevronlines.com', password: 'sharmin321', department: 'Admin', designation: 'Receptionist', role: 'employee', joinDate: '2026-02-08', status: 'Active' },
-                { id: 'NFHRADK01', name: 'Abdullah Al Saki', email: 'saki@nasfreightsbd.com', password: 'hradmin123', department: 'HR & Admin', designation: 'Assistant Manager', role: 'admin', joinDate: '2017-01-01', status: 'Active' }
-
-  ];
-  
-  const user = testUsers.find(u => u.id === username && u.password === password && u.role === role);
-  
-  if (user) {
-    return {
-      success: true,
-      data: {
-        ID: user.id,
-        Name: user.name,
-        Role: user.role,
-        Department: user.department
-      }
-    };
-  }
-  
-  return { success: false, error: 'Invalid credentials' };
+        
+    </script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script>
+async function saveLeaveRequest(data) {
+  const response = await fetch('/api/leaves', {
+    method: 'POST',
+    body: JSON.stringify(data),
+    headers: { 'Content-Type': 'application/json' }
+  });
+  return response.json();
 }
 
-// Modify your handleLogin function to use this temporarily
-async function handleLogin(event) {
-  event.preventDefault();
-  
-  const username = document.getElementById('username').value;
-  const password = document.getElementById('password').value;
-  
-  // Use simple login for testing
-  const result = simpleLogin(username, password, selectedRole);
-  
-  if (result.success) {
-    currentUser = result.data;
-    document.getElementById('loginError').style.display = 'none';
-    showMainApp();
-    loadUserDashboard();
-  } else {
-    document.getElementById('errorMessage').textContent = 'Invalid credentials';
-    document.getElementById('loginError').style.display = 'block';
-  }
-}  
+async function loadLeaveRequests() {
+  const response = await fetch('/api/leaves');
+  return response.json();
+}
     </script>
 </body>
 </html>
