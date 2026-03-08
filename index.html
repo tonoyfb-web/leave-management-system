@@ -1794,7 +1794,7 @@
         let selectedRole = 'employee';
 
 // ==================== GOOGLE SHEETS API CONFIGURATION ====================
-const GOOGLE_APPS_SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE';
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby53zFFfBy5UcMWKlJd2zX_8ggKO5-HF_iwuJvaR7y3fzM_S9vOnu2TfV3Q_69Cm_S3/exec';
 
 // ==================== API FUNCTIONS ====================
 async function callGoogleAppsScript(method, params = {}) {
@@ -3965,6 +3965,23 @@ async function loadLeaveRequests() {
   const response = await fetch('/api/leaves');
   return response.json();
 }
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+<!-- Google Sheets API Configuration -->
+<script>
+    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby53zFFfBy5UcMWKlJd2zX_8ggKO5-HF_iwuJvaR7y3fzM_S9vOnu2TfV3Q_69Cm_S3/exec';
+</script>
+
+<!-- Main Application Script -->
+<script src="js/script.js"></script>
+        
     </script>
 </body>
 </html>
