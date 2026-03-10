@@ -4,10 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LeaveFlow · Google Sheets Backend</title>
-  <!-- Font Awesome 5 (free) for icons -->
   <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.4/css/all.css">
-  <!-- Google Fonts: Inter & Poppins -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
     /* Same styles as before */
     * {
@@ -281,6 +279,7 @@
       padding: 1rem;
       border-radius: 16px;
       margin-bottom: 1rem;
+      border-left: 4px solid #991b1b;
     }
     .success-message {
       background: #dcfce7;
@@ -288,6 +287,15 @@
       padding: 1rem;
       border-radius: 16px;
       margin-bottom: 1rem;
+      border-left: 4px solid #166534;
+    }
+    .setup-instructions {
+      background: #fff3cd;
+      color: #856404;
+      padding: 1.5rem;
+      border-radius: 16px;
+      margin-bottom: 1rem;
+      border-left: 4px solid #ffc107;
     }
     footer {
       margin-top: 3rem;
@@ -313,6 +321,18 @@
   
   <!-- Status messages -->
   <div id="statusMessage"></div>
+  
+  <!-- Setup instructions (will show if no connection) -->
+  <div id="setupInstructions" class="setup-instructions hidden">
+    <h3><i class="fas fa-tools"></i> Setup Required</h3>
+    <p>Please complete the Google Sheets setup:</p>
+    <ol>
+      <li>Create a Google Sheet with sheets: Employees, LeaveRequests, Notifications</li>
+      <li>Open Apps Script and paste the backend code</li>
+      <li>Deploy as Web App and copy the URL</li>
+      <li>Replace the APPS_SCRIPT_URL in the HTML</li>
+    </ol>
+  </div>
 
   <div class="dashboard-grid">
     <!-- LEFT column -->
@@ -399,13 +419,15 @@
 </div>
 
 <script>
-  // Google Apps Script Web App URL (replace with your deployed URL)
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxk24Acc47iS-kQZTR9Y4j5iMfdUkAbgTXmAFV63x8ijfACar8uD2HZnU6UpmpVGsGW/exec';
+  // ==================== CONFIGURATION ====================
+  // REPLACE THIS WITH YOUR ACTUAL APPS SCRIPT URL
+  const APPS_SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
   
-  // Demo user (in real app, this would come from login)
+  // Demo user configuration
   const loggedEmployeeId = 'emp_1';
   const loggedEmployeeName = 'John Doe';
-  
+  // =======================================================
+
   let currentRole = 'employee';
   let employees = [];
   let leaveRequests = [];
@@ -432,6 +454,7 @@
   const addEmpForm = document.getElementById('addEmpForm');
   const saveEmpBtn = document.getElementById('saveEmpBtn');
   const statusMessage = document.getElementById('statusMessage');
+  const setupInstructions = document.getElementById('setupInstructions');
   
   // Set default dates
   const today = new Date();
@@ -440,12 +463,22 @@
   fromDate.value = today.toISOString().split('T')[0];
   toDate.value = tomorrow.toISOString().split('T')[0];
 
+  // Check if URL is configured
+  if (APPS_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
+    setupInstructions.classList.remove('hidden');
+    showMessage('error', 'Please configure your Google Apps Script URL first');
+  }
+
   // API Helper Functions
   async function callAppsScript(action, data = {}) {
+    if (APPS_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
+      throw new Error('Please configure your Google Apps Script URL');
+    }
+
     const url = new URL(APPS_SCRIPT_URL);
     url.searchParams.append('action', action);
     
-    if (typeof data === 'object') {
+    if (typeof data === 'object' && !(data instanceof FormData)) {
       url.searchParams.append('data', JSON.stringify(data));
     } else {
       Object.keys(data).forEach(key => {
@@ -454,13 +487,23 @@
     }
     
     try {
-      const response = await fetch(url.toString());
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        mode: 'cors',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const result = await response.json();
       return result;
     } catch (error) {
       console.error('API Error:', error);
-      showMessage('error', 'Failed to connect to database');
-      return { success: false, error: error.toString() };
+      throw error;
     }
   }
 
@@ -473,29 +516,49 @@
 
   // Load all data from Google Sheets
   async function loadAllData() {
+    if (APPS_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
+      return;
+    }
+
     try {
+      // Show loading states
+      balanceContainer.innerHTML = '<div class="loading">Loading balance...</div>';
+      requestTableBody.innerHTML = '<tr><td colspan="5" class="loading">Loading requests...</td></tr>';
+      notificationList.innerHTML = '<div class="loading">Loading notifications...</div>';
+      
       // Load employees
       const empResult = await callAppsScript('getEmployees');
       if (empResult.success) {
-        employees = empResult.data;
+        employees = empResult.data || [];
+      } else {
+        throw new Error(empResult.error || 'Failed to load employees');
       }
       
       // Load leave requests
       const reqResult = await callAppsScript('getLeaveRequests');
       if (reqResult.success) {
-        leaveRequests = reqResult.data;
+        leaveRequests = reqResult.data || [];
+      } else {
+        throw new Error(reqResult.error || 'Failed to load leave requests');
       }
       
       // Load notifications for current user
       const notifResult = await callAppsScript('getNotifications', { userId: getCurrentUserId() });
       if (notifResult.success) {
-        notifications = notifResult.data;
+        notifications = notifResult.data || [];
+      } else {
+        throw new Error(notifResult.error || 'Failed to load notifications');
       }
       
       renderAll();
     } catch (error) {
       console.error('Error loading data:', error);
-      showMessage('error', 'Failed to load data from Google Sheets');
+      showMessage('error', 'Failed to connect to database. Please check your Apps Script URL and deployment.');
+      
+      // Show error in containers
+      balanceContainer.innerHTML = '<div class="error-message">Failed to load data</div>';
+      requestTableBody.innerHTML = '<tr><td colspan="5" class="error-message">Failed to load requests</td></tr>';
+      notificationList.innerHTML = '<div class="error-message">Failed to load notifications</div>';
     }
   }
 
@@ -524,7 +587,7 @@
       balanceContainer.innerHTML = '<div class="loading">Employee not found</div>';
       return;
     }
-    const available = emp.totalQuota - (emp.used || 0);
+    const available = parseInt(emp.totalQuota) - (parseInt(emp.used) || 0);
     balanceContainer.innerHTML = `
       <div class="balance-item"><span class="label">${emp.leaveType}</span><span class="value">${available}</span><small> available</small></div>
       <div class="balance-item"><span class="label">Availed</span><span class="value">${emp.used || 0}</span><small> used</small></div>
@@ -533,13 +596,13 @@
   }
 
   function renderRequestTable() {
-    const pendingCount = leaveRequests.filter(r => r.status === 'pending').length;
-    pendingBadge.innerText = pendingCount;
-
-    if (leaveRequests.length === 0) {
+    if (!leaveRequests || leaveRequests.length === 0) {
       requestTableBody.innerHTML = '<tr><td colspan="5" class="loading">No leave requests</td></tr>';
       return;
     }
+
+    const pendingCount = leaveRequests.filter(r => r.status === 'pending').length;
+    pendingBadge.innerText = pendingCount;
 
     let html = '';
     leaveRequests.forEach(req => {
@@ -573,28 +636,32 @@
   }
 
   async function updateRequestStatus(requestId, newStatus) {
-    const result = await callAppsScript('updateRequestStatus', {
-      requestId: requestId,
-      status: newStatus,
-      updatedBy: currentRole
-    });
-    
-    if (result.success) {
-      showMessage('success', `Request ${newStatus} successfully`);
-      await loadAllData(); // Reload all data
-    } else {
+    try {
+      const result = await callAppsScript('updateRequestStatus', {
+        requestId: requestId,
+        status: newStatus,
+        updatedBy: currentRole
+      });
+      
+      if (result.success) {
+        showMessage('success', `Request ${newStatus} successfully`);
+        await loadAllData(); // Reload all data
+      } else {
+        showMessage('error', 'Failed to update request status');
+      }
+    } catch (error) {
       showMessage('error', 'Failed to update request status');
     }
   }
 
   function renderNotifications() {
-    if (notifications.length === 0) {
+    if (!notifications || notifications.length === 0) {
       notificationList.innerHTML = '<div class="notif-item">🔔 No new notifications</div>';
       notifCountSpan.innerText = '0';
       return;
     }
 
-    notifications.sort((a, b) => b.timestamp - a.timestamp);
+    notifications.sort((a, b) => parseInt(b.timestamp) - parseInt(a.timestamp));
     let html = '';
     notifications.slice(0, 10).forEach(n => {
       const date = new Date(parseInt(n.timestamp));
@@ -609,7 +676,9 @@
   }
 
   function renderEmployeeMaster() {
-    if (currentRole !== 'admin' || employees.length === 0) {
+    if (currentRole !== 'admin') return;
+    
+    if (!employees || employees.length === 0) {
       empMasterContainer.innerHTML = '<div class="loading">No employees</div>';
       return;
     }
@@ -617,7 +686,7 @@
     let html = '';
     employees.forEach(emp => {
       html += `<div class="emp-row">
-        <span><strong>${emp.name}</strong> (${emp.designation}) · ${emp.dept} · ${emp.leaveType} quota:${emp.totalQuota} left:${emp.totalQuota - (emp.used || 0)}</span>
+        <span><strong>${emp.name}</strong> (${emp.designation}) · ${emp.dept} · ${emp.leaveType} quota:${emp.totalQuota} left:${parseInt(emp.totalQuota) - (parseInt(emp.used) || 0)}</span>
         <button class="action-btn delete" data-id="${emp.id}"><i class="fas fa-trash-alt"></i></button>
       </div>`;
     });
@@ -631,11 +700,15 @@
   async function deleteEmployee(employeeId) {
     if (!confirm('Are you sure you want to delete this employee?')) return;
     
-    const result = await callAppsScript('deleteEmployee', { id: employeeId });
-    if (result.success) {
-      showMessage('success', 'Employee deleted successfully');
-      await loadAllData();
-    } else {
+    try {
+      const result = await callAppsScript('deleteEmployee', { id: employeeId });
+      if (result.success) {
+        showMessage('success', 'Employee deleted successfully');
+        await loadAllData();
+      } else {
+        showMessage('error', 'Failed to delete employee');
+      }
+    } catch (error) {
       showMessage('error', 'Failed to delete employee');
     }
   }
@@ -651,11 +724,15 @@
       reason: reason.value
     };
     
-    const result = await callAppsScript('addLeaveRequest', requestData);
-    if (result.success) {
-      showMessage('success', 'Leave application submitted successfully');
-      await loadAllData();
-    } else {
+    try {
+      const result = await callAppsScript('addLeaveRequest', requestData);
+      if (result.success) {
+        showMessage('success', 'Leave application submitted successfully');
+        await loadAllData();
+      } else {
+        showMessage('error', 'Failed to submit leave application');
+      }
+    } catch (error) {
       showMessage('error', 'Failed to submit leave application');
     }
   });
@@ -669,13 +746,17 @@
       totalQuota: parseInt(empQuota.value) || 10
     };
     
-    const result = await callAppsScript('addEmployee', employeeData);
-    if (result.success) {
-      showMessage('success', 'Employee added successfully');
-      empName.value = ''; empDesignation.value = ''; empDept.value = ''; empQuota.value = 12;
-      addEmpForm.style.display = 'none';
-      await loadAllData();
-    } else {
+    try {
+      const result = await callAppsScript('addEmployee', employeeData);
+      if (result.success) {
+        showMessage('success', 'Employee added successfully');
+        empName.value = ''; empDesignation.value = ''; empDept.value = ''; empQuota.value = 12;
+        addEmpForm.style.display = 'none';
+        await loadAllData();
+      } else {
+        showMessage('error', 'Failed to add employee');
+      }
+    } catch (error) {
       showMessage('error', 'Failed to add employee');
     }
   });
@@ -701,7 +782,9 @@
   });
 
   // Initialize
-  loadAllData();
+  if (APPS_SCRIPT_URL !== 'https://script.google.com/macros/s/AKfycbxk24Acc47iS-kQZTR9Y4j5iMfdUkAbgTXmAFV63x8ijfACar8uD2HZnU6UpmpVGsGW/exec') {
+    loadAllData();
+  }
 </script>
 </body>
 </html>
