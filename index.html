@@ -421,7 +421,7 @@
 <script>
   // ==================== CONFIGURATION ====================
   // REPLACE THIS WITH YOUR ACTUAL APPS SCRIPT URL
-  const APPS_SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxk24Acc47iS-kQZTR9Y4j5iMfdUkAbgTXmAFV63x8ijfACar8uD2HZnU6UpmpVGsGW/exec';
   
   // Demo user configuration
   const loggedEmployeeId = 'emp_1';
@@ -464,14 +464,14 @@
   toDate.value = tomorrow.toISOString().split('T')[0];
 
   // Check if URL is configured
-  if (APPS_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
+  if (APPS_SCRIPT_URL === 'https://script.google.com/macros/s/AKfycbxk24Acc47iS-kQZTR9Y4j5iMfdUkAbgTXmAFV63x8ijfACar8uD2HZnU6UpmpVGsGW/exec') {
     setupInstructions.classList.remove('hidden');
     showMessage('error', 'Please configure your Google Apps Script URL first');
   }
 
   // API Helper Functions
   async function callAppsScript(action, data = {}) {
-    if (APPS_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
+    if (APPS_SCRIPT_URL === 'https://script.google.com/macros/s/AKfycbxk24Acc47iS-kQZTR9Y4j5iMfdUkAbgTXmAFV63x8ijfACar8uD2HZnU6UpmpVGsGW/exec') {
       throw new Error('Please configure your Google Apps Script URL');
     }
 
@@ -516,7 +516,7 @@
 
   // Load all data from Google Sheets
   async function loadAllData() {
-    if (APPS_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
+    if (APPS_SCRIPT_URL === 'https://script.google.com/macros/s/AKfycbxk24Acc47iS-kQZTR9Y4j5iMfdUkAbgTXmAFV63x8ijfACar8uD2HZnU6UpmpVGsGW/exec') {
       return;
     }
 
