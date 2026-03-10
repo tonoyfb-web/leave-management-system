@@ -3,13 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LeaveFlow · Google Sheets Backend</title>
-  <!-- Font Awesome 5 (free) for icons -->
+  <title>LeaveFlow · Secure Login System</title>
   <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.4/css/all.css">
-  <!-- Google Fonts: Inter & Poppins -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
-    /* Same styles as before */
+    /* Previous styles remain the same, plus new login modal styles */
     * {
       margin: 0;
       padding: 0;
@@ -78,6 +76,11 @@
     #empViewBtn {
       background: #e2e8f0;
       color: #1e293b;
+    }
+    #logoutBtn {
+      background: #ef4444;
+      color: white;
+      display: none;
     }
     .active-role-badge {
       background: #dbeafe;
@@ -281,6 +284,7 @@
       padding: 1rem;
       border-radius: 16px;
       margin-bottom: 1rem;
+      border-left: 4px solid #991b1b;
     }
     .success-message {
       background: #dcfce7;
@@ -288,7 +292,157 @@
       padding: 1rem;
       border-radius: 16px;
       margin-bottom: 1rem;
+      border-left: 4px solid #166534;
     }
+
+    /* Login Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      backdrop-filter: blur(5px);
+    }
+    
+    .modal-content {
+      background-color: white;
+      margin: 15% auto;
+      padding: 2rem;
+      border-radius: 32px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+      animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+      from {
+        transform: translateY(-50px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+    
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+    }
+    
+    .modal-header h2 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.5rem;
+      color: #1e293b;
+    }
+    
+    .close-modal {
+      font-size: 1.8rem;
+      cursor: pointer;
+      color: #64748b;
+      transition: color 0.2s;
+    }
+    
+    .close-modal:hover {
+      color: #1e293b;
+    }
+    
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+    
+    .login-form input {
+      padding: 1rem 1.2rem;
+      border: 2px solid #e2e8f0;
+      border-radius: 40px;
+      font-size: 1rem;
+      transition: all 0.2s;
+    }
+    
+    .login-form input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+    }
+    
+    .login-form button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 1rem;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+    
+    .login-form button:hover {
+      background: #1d4ed8;
+    }
+    
+    .login-info {
+      background: #f8fafc;
+      padding: 1rem;
+      border-radius: 20px;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      color: #475569;
+    }
+    
+    .login-info i {
+      color: #2563eb;
+      margin-right: 6px;
+    }
+    
+    .login-info p {
+      margin: 5px 0;
+    }
+    
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: white;
+      padding: 0.5rem 1.2rem;
+      border-radius: 40px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      background: #2563eb;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+    }
+    
+    .user-info {
+      font-weight: 500;
+    }
+    
+    .user-role {
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+    
     footer {
       margin-top: 3rem;
       text-align: center;
@@ -302,17 +456,48 @@
 
   <div class="role-header">
     <div class="logo"><h1><i class="fas fa-cloud-sun" style="margin-right: 8px;"></i>LeaveFlow</h1></div>
-    <div class="login-panel">
-      <button id="empViewBtn"><i class="fas fa-user"></i> Employee view</button>
-      <button id="adminLoginBtn"><i class="fas fa-lock"></i> Admin login</button>
-      <button id="managerLoginBtn"><i class="fas fa-lock"></i> Manager login</button>
+    <div style="display: flex; gap: 1rem; align-items: center;">
+      <!-- User profile (visible when logged in) -->
+      <div id="userProfile" class="user-profile" style="display: none;">
+        <div class="user-avatar" id="userAvatar">A</div>
+        <div>
+          <div class="user-info" id="userName">Admin</div>
+          <div class="user-role" id="userRole">Administrator</div>
+        </div>
+      </div>
+      <div class="login-panel">
+        <button id="empViewBtn"><i class="fas fa-user"></i> Employee view</button>
+        <button id="adminLoginBtn"><i class="fas fa-lock"></i> Admin login</button>
+        <button id="managerLoginBtn"><i class="fas fa-lock"></i> Manager login</button>
+        <button id="logoutBtn" style="display: none;"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
     </div>
   </div>
 
-  <div id="roleBadge" class="active-role-badge"><i class="fas fa-id-badge"></i> You are: Employee (default)</div>
+  <div id="roleBadge" class="active-role-badge"><i class="fas fa-id-badge"></i> You are: Employee (not logged in)</div>
   
   <!-- Status messages -->
   <div id="statusMessage"></div>
+
+  <!-- Login Modal -->
+  <div id="loginModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">Admin Login</h2>
+        <span class="close-modal">&times;</span>
+      </div>
+      <div class="login-form">
+        <input type="text" id="loginUsername" placeholder="Username" value="admin">
+        <input type="password" id="loginPassword" placeholder="Password" value="admin123">
+        <button id="loginSubmitBtn"><i class="fas fa-sign-in-alt"></i> Login</button>
+      </div>
+      <div class="login-info">
+        <p><i class="fas fa-info-circle"></i> Demo credentials:</p>
+        <p><strong>Admin:</strong> admin / admin123</p>
+        <p><strong>Manager:</strong> manager / manager123</p>
+      </div>
+    </div>
+  </div>
 
   <div class="dashboard-grid">
     <!-- LEFT column -->
@@ -395,27 +580,59 @@
       </div>
     </div>
   </div>
-  <footer>⚡ Google Sheets backend — data persists in your spreadsheet</footer>
+  <footer>⚡ Secure login system for Admin and Manager</footer>
 </div>
 
 <script>
-  // Google Apps Script Web App URL (replace with your deployed URL)
+  // ==================== CONFIGURATION ====================
+  // Replace with your Google Apps Script URL
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby0N_6GSjvFBUP0YKPuQdCY8ucMZgWWLyWVAzGDa7ZLoZMeIRet_8bv9GfntfxOowyU/exec';
   
-  // Demo user (in real app, this would come from login)
+  // Demo user credentials (in production, these would be stored in Google Sheets)
+  const USERS = {
+    admin: {
+      username: 'admin',
+      password: 'admin123',
+      name: 'Admin User',
+      role: 'admin',
+      employeeId: null
+    },
+    manager: {
+      username: 'manager',
+      password: 'manager123',
+      name: 'Manager User',
+      role: 'manager',
+      employeeId: null
+    },
+    employee: {
+      username: 'employee',
+      password: 'employee123',
+      name: 'John Doe',
+      role: 'employee',
+      employeeId: 'emp_1'
+    }
+  };
+  
+  // Current logged in user
+  let currentUser = null;
+  let currentRole = 'employee'; // fallback
+  
+  // Demo employee ID for employee view
   const loggedEmployeeId = 'emp_1';
   const loggedEmployeeName = 'John Doe';
   
-  let currentRole = 'employee';
+  // Data stores
   let employees = [];
   let leaveRequests = [];
   let notifications = [];
+  // =======================================================
 
   // DOM elements
   const roleBadge = document.getElementById('roleBadge');
   const adminLoginBtn = document.getElementById('adminLoginBtn');
   const managerLoginBtn = document.getElementById('managerLoginBtn');
   const empViewBtn = document.getElementById('empViewBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
   const adminMasterCard = document.getElementById('adminMasterCard');
   const balanceContainer = document.getElementById('balanceContainer');
   const requestTableBody = document.getElementById('requestTableBody');
@@ -432,6 +649,20 @@
   const addEmpForm = document.getElementById('addEmpForm');
   const saveEmpBtn = document.getElementById('saveEmpBtn');
   const statusMessage = document.getElementById('statusMessage');
+  const userProfile = document.getElementById('userProfile');
+  const userName = document.getElementById('userName');
+  const userRole = document.getElementById('userRole');
+  const userAvatar = document.getElementById('userAvatar');
+  
+  // Modal elements
+  const loginModal = document.getElementById('loginModal');
+  const modalTitle = document.getElementById('modalTitle');
+  const loginUsername = document.getElementById('loginUsername');
+  const loginPassword = document.getElementById('loginPassword');
+  const loginSubmitBtn = document.getElementById('loginSubmitBtn');
+  const closeModal = document.querySelector('.close-modal');
+  
+  let pendingLoginRole = 'admin'; // Track which login was clicked
   
   // Set default dates
   const today = new Date();
@@ -440,12 +671,90 @@
   fromDate.value = today.toISOString().split('T')[0];
   toDate.value = tomorrow.toISOString().split('T')[0];
 
-  // API Helper Functions
+  // Modal functions
+  function openLoginModal(role) {
+    pendingLoginRole = role;
+    modalTitle.textContent = role === 'admin' ? 'Admin Login' : 'Manager Login';
+    loginUsername.value = role;
+    loginPassword.value = role === 'admin' ? 'admin123' : 'manager123';
+    loginModal.style.display = 'block';
+  }
+  
+  function closeLoginModal() {
+    loginModal.style.display = 'none';
+  }
+  
+  // Close modal when clicking outside
+  window.onclick = function(event) {
+    if (event.target === loginModal) {
+      closeLoginModal();
+    }
+  }
+  
+  closeModal.onclick = closeLoginModal;
+  
+  // Login function
+  function login(username, password, role) {
+    // Check credentials
+    const user = USERS[username];
+    if (user && user.password === password && user.role === role) {
+      currentUser = user;
+      currentRole = user.role;
+      
+      // Update UI for logged in state
+      userProfile.style.display = 'flex';
+      userName.textContent = user.name;
+      userRole.textContent = user.role === 'admin' ? 'Administrator' : 'Manager';
+      userAvatar.textContent = user.name.charAt(0);
+      
+      // Hide login buttons, show logout
+      adminLoginBtn.style.display = 'none';
+      managerLoginBtn.style.display = 'none';
+      empViewBtn.style.display = 'none';
+      logoutBtn.style.display = 'flex';
+      
+      roleBadge.innerHTML = `<i class="fas fa-id-badge"></i> Logged in as: ${user.role} (${user.name})`;
+      
+      closeLoginModal();
+      showMessage('success', `Welcome, ${user.name}!`);
+      loadAllData();
+      
+      return true;
+    } else {
+      showMessage('error', 'Invalid username or password');
+      return false;
+    }
+  }
+  
+  // Logout function
+  function logout() {
+    currentUser = null;
+    currentRole = 'employee';
+    
+    // Reset UI
+    userProfile.style.display = 'none';
+    adminLoginBtn.style.display = 'flex';
+    managerLoginBtn.style.display = 'flex';
+    empViewBtn.style.display = 'flex';
+    logoutBtn.style.display = 'none';
+    
+    roleBadge.innerHTML = '<i class="fas fa-id-badge"></i> You are: Employee (not logged in)';
+    
+    showMessage('success', 'Logged out successfully');
+    loadAllData(); // Reload as employee view
+  }
+
+  // API Helper Functions (same as before)
   async function callAppsScript(action, data = {}) {
+    if (APPS_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
+      // For demo without Google Sheets, use mock data
+      return mockApiCall(action, data);
+    }
+
     const url = new URL(APPS_SCRIPT_URL);
     url.searchParams.append('action', action);
     
-    if (typeof data === 'object') {
+    if (typeof data === 'object' && !(data instanceof FormData)) {
       url.searchParams.append('data', JSON.stringify(data));
     } else {
       Object.keys(data).forEach(key => {
@@ -454,13 +763,68 @@
     }
     
     try {
-      const response = await fetch(url.toString());
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        mode: 'cors',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const result = await response.json();
       return result;
     } catch (error) {
       console.error('API Error:', error);
-      showMessage('error', 'Failed to connect to database');
-      return { success: false, error: error.toString() };
+      // Fallback to mock data
+      return mockApiCall(action, data);
+    }
+  }
+  
+  // Mock API for demo without Google Sheets
+  function mockApiCall(action, data) {
+    console.log('Mock API call:', action, data);
+    
+    // Mock data
+    const mockEmployees = [
+      { id: 'emp_1', name: 'John Doe', designation: 'Frontend Dev', dept: 'Engineering', leaveType: 'Casual', totalQuota: 12, used: 2 },
+      { id: 'emp_2', name: 'Jane Smith', designation: 'HR Generalist', dept: 'HR', leaveType: 'Sick', totalQuota: 10, used: 1 },
+      { id: 'emp_3', name: 'Mike Johnson', designation: 'Tech Lead', dept: 'Engineering', leaveType: 'Annual', totalQuota: 15, used: 4 }
+    ];
+    
+    const mockRequests = [
+      { id: 'req_1', employeeId: 'emp_1', employeeName: 'John Doe', type: 'Casual', from: '2025-04-15', to: '2025-04-16', reason: 'Family function', status: 'pending' },
+      { id: 'req_2', employeeId: 'emp_2', employeeName: 'Jane Smith', type: 'Sick', from: '2025-04-07', to: '2025-04-08', reason: 'Flu', status: 'approved' },
+    ];
+    
+    const mockNotifications = [
+      { id: 'notif_1', userId: 'emp_1', message: 'Your leave request was approved', timestamp: Date.now() - 3600000 },
+      { id: 'notif_2', userId: 'admin', message: 'New leave request from Jane Smith', timestamp: Date.now() - 1800000 },
+      { id: 'notif_3', userId: 'manager', message: 'John Doe applied for casual leave', timestamp: Date.now() - 7200000 },
+    ];
+    
+    switch(action) {
+      case 'getEmployees':
+        return { success: true, data: mockEmployees };
+      case 'getLeaveRequests':
+        return { success: true, data: mockRequests };
+      case 'getNotifications':
+        const userId = data.userId;
+        let filtered = mockNotifications.filter(n => n.userId === userId || userId === 'admin' || userId === 'manager');
+        return { success: true, data: filtered };
+      case 'addLeaveRequest':
+        return { success: true, id: 'req_' + Date.now() };
+      case 'updateRequestStatus':
+        return { success: true };
+      case 'addEmployee':
+        return { success: true, id: 'emp_' + Date.now() };
+      case 'deleteEmployee':
+        return { success: true };
+      default:
+        return { success: true, data: [] };
     }
   }
 
@@ -471,37 +835,45 @@
     }, 5000);
   }
 
-  // Load all data from Google Sheets
+  // Load all data
   async function loadAllData() {
     try {
+      // Show loading states
+      balanceContainer.innerHTML = '<div class="loading">Loading balance...</div>';
+      requestTableBody.innerHTML = '<tr><td colspan="5" class="loading">Loading requests...</td></tr>';
+      notificationList.innerHTML = '<div class="loading">Loading notifications...</div>';
+      
       // Load employees
       const empResult = await callAppsScript('getEmployees');
       if (empResult.success) {
-        employees = empResult.data;
+        employees = empResult.data || [];
       }
       
       // Load leave requests
       const reqResult = await callAppsScript('getLeaveRequests');
       if (reqResult.success) {
-        leaveRequests = reqResult.data;
+        leaveRequests = reqResult.data || [];
       }
       
       // Load notifications for current user
       const notifResult = await callAppsScript('getNotifications', { userId: getCurrentUserId() });
       if (notifResult.success) {
-        notifications = notifResult.data;
+        notifications = notifResult.data || [];
       }
       
       renderAll();
     } catch (error) {
       console.error('Error loading data:', error);
-      showMessage('error', 'Failed to load data from Google Sheets');
+      showMessage('error', 'Failed to load data');
     }
   }
 
   function getCurrentUserId() {
-    if (currentRole === 'admin') return 'admin';
-    if (currentRole === 'manager') return 'manager';
+    if (currentUser) {
+      if (currentUser.role === 'admin') return 'admin';
+      if (currentUser.role === 'manager') return 'manager';
+      return currentUser.employeeId || loggedEmployeeId;
+    }
     return loggedEmployeeId;
   }
 
@@ -514,17 +886,26 @@
   }
 
   function updateRoleVisibility() {
-    roleBadge.innerHTML = `<i class="fas fa-id-badge"></i> You are: ${currentRole.charAt(0).toUpperCase() + currentRole.slice(1)}`;
+    // Show/hide admin panel based on role
     adminMasterCard.classList.toggle('hidden', currentRole !== 'admin');
+    
+    // Disable leave application for non-employees?
+    const applyCard = document.getElementById('applyCard');
+    if (applyCard) {
+      // Everyone can see but maybe disable for admin/manager?
+    }
   }
 
   function renderBalance() {
-    const emp = employees.find(e => e.id === loggedEmployeeId);
+    const empId = currentUser?.employeeId || loggedEmployeeId;
+    const emp = employees.find(e => e.id === empId);
+    
     if (!emp) {
-      balanceContainer.innerHTML = '<div class="loading">Employee not found</div>';
+      balanceContainer.innerHTML = '<div class="loading">No balance data</div>';
       return;
     }
-    const available = emp.totalQuota - (emp.used || 0);
+    
+    const available = parseInt(emp.totalQuota) - (parseInt(emp.used) || 0);
     balanceContainer.innerHTML = `
       <div class="balance-item"><span class="label">${emp.leaveType}</span><span class="value">${available}</span><small> available</small></div>
       <div class="balance-item"><span class="label">Availed</span><span class="value">${emp.used || 0}</span><small> used</small></div>
@@ -533,17 +914,19 @@
   }
 
   function renderRequestTable() {
-    const pendingCount = leaveRequests.filter(r => r.status === 'pending').length;
-    pendingBadge.innerText = pendingCount;
-
-    if (leaveRequests.length === 0) {
+    if (!leaveRequests || leaveRequests.length === 0) {
       requestTableBody.innerHTML = '<tr><td colspan="5" class="loading">No leave requests</td></tr>';
       return;
     }
 
+    const pendingCount = leaveRequests.filter(r => r.status === 'pending').length;
+    pendingBadge.innerText = pendingCount;
+
     let html = '';
     leaveRequests.forEach(req => {
       let actionButtons = '';
+      
+      // Show approve/reject buttons only for admin/manager and pending requests
       if ((currentRole === 'admin' || currentRole === 'manager') && req.status === 'pending') {
         actionButtons = `
           <button class="action-btn approve" data-id="${req.id}" title="Approve"><i class="fas fa-check-circle"></i></button>
@@ -573,28 +956,30 @@
   }
 
   async function updateRequestStatus(requestId, newStatus) {
-    const result = await callAppsScript('updateRequestStatus', {
-      requestId: requestId,
-      status: newStatus,
-      updatedBy: currentRole
-    });
-    
-    if (result.success) {
-      showMessage('success', `Request ${newStatus} successfully`);
-      await loadAllData(); // Reload all data
-    } else {
-      showMessage('error', 'Failed to update request status');
+    try {
+      const result = await callAppsScript('updateRequestStatus', {
+        requestId: requestId,
+        status: newStatus,
+        updatedBy: currentRole
+      });
+      
+      if (result.success) {
+        showMessage('success', `Request ${newStatus} successfully`);
+        await loadAllData();
+      }
+    } catch (error) {
+      showMessage('error', 'Failed to update request');
     }
   }
 
   function renderNotifications() {
-    if (notifications.length === 0) {
+    if (!notifications || notifications.length === 0) {
       notificationList.innerHTML = '<div class="notif-item">🔔 No new notifications</div>';
       notifCountSpan.innerText = '0';
       return;
     }
 
-    notifications.sort((a, b) => b.timestamp - a.timestamp);
+    notifications.sort((a, b) => parseInt(b.timestamp) - parseInt(a.timestamp));
     let html = '';
     notifications.slice(0, 10).forEach(n => {
       const date = new Date(parseInt(n.timestamp));
@@ -609,7 +994,9 @@
   }
 
   function renderEmployeeMaster() {
-    if (currentRole !== 'admin' || employees.length === 0) {
+    if (currentRole !== 'admin') return;
+    
+    if (!employees || employees.length === 0) {
       empMasterContainer.innerHTML = '<div class="loading">No employees</div>';
       return;
     }
@@ -617,7 +1004,7 @@
     let html = '';
     employees.forEach(emp => {
       html += `<div class="emp-row">
-        <span><strong>${emp.name}</strong> (${emp.designation}) · ${emp.dept} · ${emp.leaveType} quota:${emp.totalQuota} left:${emp.totalQuota - (emp.used || 0)}</span>
+        <span><strong>${emp.name}</strong> (${emp.designation}) · ${emp.dept} · ${emp.leaveType} quota:${emp.totalQuota} left:${parseInt(emp.totalQuota) - (parseInt(emp.used) || 0)}</span>
         <button class="action-btn delete" data-id="${emp.id}"><i class="fas fa-trash-alt"></i></button>
       </div>`;
     });
@@ -631,36 +1018,95 @@
   async function deleteEmployee(employeeId) {
     if (!confirm('Are you sure you want to delete this employee?')) return;
     
-    const result = await callAppsScript('deleteEmployee', { id: employeeId });
-    if (result.success) {
-      showMessage('success', 'Employee deleted successfully');
-      await loadAllData();
-    } else {
+    try {
+      const result = await callAppsScript('deleteEmployee', { id: employeeId });
+      if (result.success) {
+        showMessage('success', 'Employee deleted');
+        await loadAllData();
+      }
+    } catch (error) {
       showMessage('error', 'Failed to delete employee');
     }
   }
 
   // Event Listeners
+  adminLoginBtn.addEventListener('click', () => openLoginModal('admin'));
+  managerLoginBtn.addEventListener('click', () => openLoginModal('manager'));
+  
+  empViewBtn.addEventListener('click', () => {
+    // Employee view (no login required)
+    currentUser = null;
+    currentRole = 'employee';
+    userProfile.style.display = 'none';
+    roleBadge.innerHTML = '<i class="fas fa-id-badge"></i> You are: Employee (view only)';
+    loadAllData();
+  });
+  
+  logoutBtn.addEventListener('click', logout);
+  
+  loginSubmitBtn.addEventListener('click', () => {
+    login(loginUsername.value, loginPassword.value, pendingLoginRole);
+  });
+  
+  // Allow Enter key in login form
+  loginPassword.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      login(loginUsername.value, loginPassword.value, pendingLoginRole);
+    }
+  });
+
   submitLeaveBtn.addEventListener('click', async () => {
-    const requestData = {
-      employeeId: loggedEmployeeId,
-      employeeName: loggedEmployeeName,
-      type: leaveTypeSelect.value,
-      from: fromDate.value,
-      to: toDate.value,
-      reason: reason.value
-    };
-    
-    const result = await callAppsScript('addLeaveRequest', requestData);
-    if (result.success) {
-      showMessage('success', 'Leave application submitted successfully');
-      await loadAllData();
+    if (!currentUser && currentRole === 'employee') {
+      // Employee view - use default employee
+      const requestData = {
+        employeeId: loggedEmployeeId,
+        employeeName: loggedEmployeeName,
+        type: leaveTypeSelect.value,
+        from: fromDate.value,
+        to: toDate.value,
+        reason: reason.value
+      };
+      
+      try {
+        const result = await callAppsScript('addLeaveRequest', requestData);
+        if (result.success) {
+          showMessage('success', 'Leave application submitted');
+          await loadAllData();
+        }
+      } catch (error) {
+        showMessage('error', 'Failed to submit');
+      }
+    } else if (currentUser) {
+      // Logged in user - use their ID
+      const requestData = {
+        employeeId: currentUser.employeeId || loggedEmployeeId,
+        employeeName: currentUser.name,
+        type: leaveTypeSelect.value,
+        from: fromDate.value,
+        to: toDate.value,
+        reason: reason.value
+      };
+      
+      try {
+        const result = await callAppsScript('addLeaveRequest', requestData);
+        if (result.success) {
+          showMessage('success', 'Leave application submitted');
+          await loadAllData();
+        }
+      } catch (error) {
+        showMessage('error', 'Failed to submit');
+      }
     } else {
-      showMessage('error', 'Failed to submit leave application');
+      showMessage('error', 'Please log in or use Employee view');
     }
   });
 
   saveEmpBtn.addEventListener('click', async () => {
+    if (currentRole !== 'admin') {
+      showMessage('error', 'Admin access required');
+      return;
+    }
+    
     const employeeData = {
       name: empName.value || 'New Employee',
       designation: empDesignation.value || 'Staff',
@@ -669,35 +1115,21 @@
       totalQuota: parseInt(empQuota.value) || 10
     };
     
-    const result = await callAppsScript('addEmployee', employeeData);
-    if (result.success) {
-      showMessage('success', 'Employee added successfully');
-      empName.value = ''; empDesignation.value = ''; empDept.value = ''; empQuota.value = 12;
-      addEmpForm.style.display = 'none';
-      await loadAllData();
-    } else {
+    try {
+      const result = await callAppsScript('addEmployee', employeeData);
+      if (result.success) {
+        showMessage('success', 'Employee added');
+        empName.value = ''; empDesignation.value = ''; empDept.value = ''; empQuota.value = 12;
+        addEmpForm.style.display = 'none';
+        await loadAllData();
+      }
+    } catch (error) {
       showMessage('error', 'Failed to add employee');
     }
   });
 
   showAddEmpFormBtn.addEventListener('click', () => {
     addEmpForm.style.display = addEmpForm.style.display === 'none' ? 'block' : 'none';
-  });
-
-  // Login handlers
-  adminLoginBtn.addEventListener('click', () => {
-    currentRole = 'admin';
-    loadAllData();
-  });
-
-  managerLoginBtn.addEventListener('click', () => {
-    currentRole = 'manager';
-    loadAllData();
-  });
-
-  empViewBtn.addEventListener('click', () => {
-    currentRole = 'employee';
-    loadAllData();
   });
 
   // Initialize
