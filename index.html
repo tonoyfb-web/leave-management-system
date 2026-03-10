@@ -442,7 +442,7 @@
 
   // API Helper Functions
   async function callAppsScript(action, data = {}) {
-    const url = new URL(https://script.google.com/macros/s/AKfycby0N_6GSjvFBUP0YKPuQdCY8ucMZgWWLyWVAzGDa7ZLoZMeIRet_8bv9GfntfxOowyU/exec);
+    const url = new URL(APPS_SCRIPT_URL);
     url.searchParams.append('action', action);
     
     if (typeof data === 'object') {
