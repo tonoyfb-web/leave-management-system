@@ -2,9 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>LeaveFlow · Supabase Edition</title>
+  <title>LeaveFlow · Working Version</title>
   <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.4/css/all.css">
-  <!-- Supabase client library via CDN [citation:10] -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
@@ -40,6 +39,7 @@
     .notif-area { max-height: 250px; overflow-y: auto; }
     .leave-dates-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px,1fr)); gap: 0.5rem; }
     .footer { text-align: center; margin-top: 2rem; color: #64748b; }
+    .debug-panel { background: #1e293b; color: #fff; padding: 1rem; border-radius: 16px; margin-bottom: 1rem; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; }
   </style>
 </head>
 <body>
@@ -60,14 +60,61 @@
     </div>
   </div>
   <div id="roleBadge" style="margin-bottom:1rem;">Not logged in</div>
+  
+  <!-- Debug Panel (shows login attempts) -->
+  <div class="debug-panel" id="debugPanel">
+    <strong>Debug Log:</strong> Ready...
+  </div>
+  
   <div id="statusMessage"></div>
 
-  <!-- Modals (same structure as before) -->
-  <div id="adminManagerModal" class="modal"><div class="modal-content"><span class="close-modal">&times;</span><h2 id="adminManagerModalTitle">Login</h2><input type="text" id="adminManagerUsername" placeholder="Username"><input type="password" id="adminManagerPassword" placeholder="Password"><button id="adminManagerLoginBtn">Login</button></div></div>
-  <div id="employeeModal" class="modal"><div class="modal-content"><span class="close-modal">&times;</span><h2>Employee Login</h2><input type="text" id="employeeUsername" placeholder="Username"><input type="password" id="employeePassword" placeholder="Password"><button id="employeeLoginSubmitBtn">Login</button></div></div>
-  <div id="editEmployeeModal" class="modal"><div class="modal-content"><span class="close-modal">&times;</span><h2>Edit Employee</h2><input type="hidden" id="editEmployeeId"><input type="text" id="editName" placeholder="Name"><input type="text" id="editDesignation" placeholder="Designation"><input type="text" id="editDept" placeholder="Department"><input type="text" id="editUsername" placeholder="Username"><h4>Leave Quotas</h4><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem"><div>Casual: <input type="number" id="editCasualQuota" value="12"></div><div>Sick: <input type="number" id="editSickQuota" value="10"></div><div>Annual: <input type="number" id="editAnnualQuota" value="15"></div></div><h4>Leave Used</h4><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem"><div>Casual: <input type="number" id="editCasualUsed" value="0"></div><div>Sick: <input type="number" id="editSickUsed" value="0"></div><div>Annual: <input type="number" id="editAnnualUsed" value="0"></div></div><button id="saveEditBtn">Save</button></div></div>
+  <!-- Modals -->
+  <div id="adminManagerModal" class="modal">
+    <div class="modal-content">
+      <span class="close-modal">&times;</span>
+      <h2 id="adminManagerModalTitle">Login</h2>
+      <input type="text" id="adminManagerUsername" placeholder="Username" value="admin">
+      <input type="password" id="adminManagerPassword" placeholder="Password" value="admin123">
+      <button id="adminManagerLoginBtn">Login</button>
+    </div>
+  </div>
 
-  <!-- Dashboard (same as before) -->
+  <div id="employeeModal" class="modal">
+    <div class="modal-content">
+      <span class="close-modal">&times;</span>
+      <h2>Employee Login</h2>
+      <input type="text" id="employeeUsername" placeholder="Username" value="john.doe">
+      <input type="password" id="employeePassword" placeholder="Password" value="john123">
+      <button id="employeeLoginSubmitBtn">Login</button>
+    </div>
+  </div>
+
+  <div id="editEmployeeModal" class="modal">
+    <div class="modal-content">
+      <span class="close-modal">&times;</span>
+      <h2>Edit Employee</h2>
+      <input type="hidden" id="editEmployeeId">
+      <input type="text" id="editName" placeholder="Name">
+      <input type="text" id="editDesignation" placeholder="Designation">
+      <input type="text" id="editDept" placeholder="Department">
+      <input type="text" id="editUsername" placeholder="Username">
+      <h4>Leave Quotas</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem">
+        <div>Casual: <input type="number" id="editCasualQuota" value="12"></div>
+        <div>Sick: <input type="number" id="editSickQuota" value="10"></div>
+        <div>Annual: <input type="number" id="editAnnualQuota" value="15"></div>
+      </div>
+      <h4>Leave Used</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem">
+        <div>Casual: <input type="number" id="editCasualUsed" value="0"></div>
+        <div>Sick: <input type="number" id="editSickUsed" value="0"></div>
+        <div>Annual: <input type="number" id="editAnnualUsed" value="0"></div>
+      </div>
+      <button id="saveEditBtn">Save</button>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
   <div class="dashboard-grid">
     <!-- Employee Column -->
     <div id="employeeColumn" style="display:none;">
@@ -93,20 +140,35 @@
 
 <script>
   // ========== SUPABASE CONFIGURATION ==========
-  // REPLACE THESE WITH YOUR ACTUAL VALUES [citation:2]
+  // REPLACE THESE WITH YOUR ACTUAL VALUES FROM SUPABASE DASHBOARD
   const SUPABASE_URL = 'https://pzldqhhlxkcrulmeabhf.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6bGRxaGhseGtjcnVsbWVhYmhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODA5OTcsImV4cCI6MjA4ODg1Njk5N30.9GYYHDpdGGB5cVBApK_cSHEPUGe5uqfj4FpjHqPy5JA';
+  
+  // Debug function
+  function addDebug(message) {
+    const panel = document.getElementById('debugPanel');
+    panel.innerHTML += '<br>' + new Date().toLocaleTimeString() + ': ' + message;
+    panel.scrollTop = panel.scrollHeight;
+    console.log(message);
+  }
+
+  addDebug('Initializing Supabase...');
   
   // Initialize Supabase client
   const { createClient } = supabase;
   const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  addDebug('Supabase client created');
 
-  // Simple hash function (keeping for password compatibility)
+  // Simple hash function
   function hashPassword(p) { 
     let h = 0; 
     for (let c of p) h = ((h << 5) - h) + c.charCodeAt(0); 
     return h; 
   }
+
+  // Test hash function
+  addDebug('Test hash for admin123: ' + hashPassword('admin123'));
+  addDebug('Test hash for john123: ' + hashPassword('john123'));
 
   // Data stores
   let employees = [], leaveRequests = [], notifications = [], adminNotifications = [], availableLeaveDates = [], currentUser = null, currentRole = null;
@@ -135,13 +197,17 @@
   function openAdminManagerModal(r) { 
     pendingAdminManagerRole = r; 
     adminManagerModalTitle.textContent = r === 'admin' ? 'Admin Login' : 'Manager Login'; 
-    adminManagerUsername.value = ''; 
-    adminManagerPassword.value = ''; 
+    adminManagerUsername.value = r === 'admin' ? 'admin' : 'manager';
+    adminManagerPassword.value = r === 'admin' ? 'admin123' : 'manager123';
     adminManagerModal.style.display = 'block'; 
   }
   
   function closeAdminManagerModal() { adminManagerModal.style.display = 'none'; }
-  function openEmployeeModal() { employeeUsername.value = ''; employeePassword.value = ''; employeeModal.style.display = 'block'; }
+  function openEmployeeModal() { 
+    employeeUsername.value = 'john.doe'; 
+    employeePassword.value = 'john123'; 
+    employeeModal.style.display = 'block'; 
+  }
   window.closeEmployeeModal = () => employeeModal.style.display = 'none';
   window.closeEditModal = () => editEmployeeModal.style.display = 'none';
   
@@ -155,76 +221,90 @@
     if (e.target === editEmployeeModal) closeEditModal(); 
   };
 
-  // ========== SUPABASE API FUNCTIONS ==========
-  // Using supabase-js client library [citation:2]
-
-  async function loginUser(username, password, role) {
-    const hash = hashPassword(password).toString();
+  // ========== LOGIN FUNCTION WITH DEBUGGING ==========
+  async function adminManagerLogin(username, password, role) {
+    addDebug(`Login attempt: username=${username}, role=${role}`);
     
-    if (role === 'admin' || role === 'manager') {
+    if (!username || !password) {
+      addDebug('ERROR: Empty credentials');
+      return showMessage('error', 'Enter credentials');
+    }
+    
+    const hash = hashPassword(password).toString();
+    addDebug(`Password hash: ${hash}`);
+    
+    try {
+      addDebug('Querying Supabase users table...');
       const { data, error } = await supabaseClient
         .from('users')
         .select('*')
         .eq('username', username)
         .eq('password_hash', hash)
-        .eq('role', role)
-        .single();
+        .eq('role', role);
       
-      if (data) {
-        return { success: true, user: data };
+      addDebug(`Query result: ${JSON.stringify(data)}`);
+      if (error) addDebug(`Query error: ${JSON.stringify(error)}`);
+      
+      if (data && data.length > 0) {
+        addDebug(`Login successful for ${data[0].name}`);
+        currentUser = data[0];
+        currentRole = data[0].role;
+        updateUIAfterLogin();
+        closeAdminManagerModal();
+        showMessage('success', `Welcome ${data[0].name}`);
+        loadAllData();
+      } else {
+        addDebug('No matching user found');
+        showMessage('error', 'Invalid credentials');
       }
-    } else {
+    } catch (e) {
+      addDebug(`Exception: ${e.message}`);
+      showMessage('error', 'Login failed');
+    }
+  }
+  
+  async function employeeLogin(username, password) {
+    addDebug(`Employee login attempt: username=${username}`);
+    
+    if (!username || !password) {
+      addDebug('ERROR: Empty credentials');
+      return showMessage('error', 'Enter credentials');
+    }
+    
+    const hash = hashPassword(password).toString();
+    addDebug(`Password hash: ${hash}`);
+    
+    try {
+      addDebug('Querying Supabase employees table...');
       const { data, error } = await supabaseClient
         .from('employees')
         .select('*')
         .eq('username', username)
-        .eq('password_hash', hash)
-        .single();
+        .eq('password_hash', hash);
       
-      if (data) {
-        return { success: true, employee: data };
+      addDebug(`Query result: ${JSON.stringify(data)}`);
+      if (error) addDebug(`Query error: ${JSON.stringify(error)}`);
+      
+      if (data && data.length > 0) {
+        addDebug(`Login successful for ${data[0].name}`);
+        currentUser = { 
+          id: data[0].id, 
+          name: data[0].name, 
+          role: 'employee', 
+          employeeId: data[0].id 
+        };
+        currentRole = 'employee';
+        updateUIAfterLogin();
+        closeEmployeeModal();
+        showMessage('success', `Welcome ${data[0].name}`);
+        loadAllData();
+      } else {
+        addDebug('No matching employee found');
+        showMessage('error', 'Invalid credentials');
       }
-    }
-    return { success: false };
-  }
-
-  // Authentication functions
-  async function adminManagerLogin(u, p, r) {
-    if (!u || !p) return showMessage('error', 'Enter credentials');
-    const result = await loginUser(u, p, r);
-    
-    if (result.success && result.user) {
-      currentUser = result.user;
-      currentRole = result.user.role;
-      updateUIAfterLogin();
-      closeAdminManagerModal();
-      showMessage('success', `Welcome ${result.user.name}`);
-      loadAllData();
-      setupRealtimeNotifications();
-    } else {
-      showMessage('error', 'Invalid credentials');
-    }
-  }
-  
-  async function employeeLogin(u, p) {
-    if (!u || !p) return showMessage('error', 'Enter credentials');
-    const result = await loginUser(u, p, 'employee');
-    
-    if (result.success && result.employee) {
-      currentUser = { 
-        id: result.employee.id, 
-        name: result.employee.name, 
-        role: 'employee', 
-        employeeId: result.employee.id 
-      };
-      currentRole = 'employee';
-      updateUIAfterLogin();
-      closeEmployeeModal();
-      showMessage('success', `Welcome ${result.employee.name}`);
-      loadAllData();
-      setupRealtimeNotifications();
-    } else {
-      showMessage('error', 'Invalid credentials');
+    } catch (e) {
+      addDebug(`Exception: ${e.message}`);
+      showMessage('error', 'Login failed');
     }
   }
   
@@ -264,30 +344,7 @@
     welcomeScreen.style.display = 'block'; 
     globalNotificationBadge.style.display = 'none';
     roleBadge.innerHTML = 'Not logged in';
-  }
-
-  // Set up realtime notifications [citation:4]
-  function setupRealtimeNotifications() {
-    if (!currentUser) return;
-    
-    const userId = currentRole === 'employee' ? currentUser.employeeId : currentRole;
-    
-    supabaseClient
-      .channel('notifications-channel')
-      .on(
-        'postgres_changes',
-        { 
-          event: 'INSERT', 
-          schema: 'public', 
-          table: 'notifications',
-          filter: `user_id=eq.${userId}`
-        },
-        (payload) => {
-          console.log('New notification:', payload);
-          loadAllData(); // Refresh data when new notification arrives
-        }
-      )
-      .subscribe();
+    addDebug('Logged out');
   }
 
   // ========== DATA LOADING FUNCTIONS ==========
@@ -296,19 +353,19 @@
     
     try {
       // Load available leave dates
-      const { data: datesData, error: datesError } = await supabaseClient
+      const { data: datesData } = await supabaseClient
         .from('available_leave_dates')
         .select('*');
       
-      if (!datesError) {
-        availableLeaveDates = datesData || [];
+      if (datesData) {
+        availableLeaveDates = datesData;
         renderAvailableLeaveDates();
         if (currentRole === 'admin') renderLeaveDatesList();
       }
       
       if (currentRole === 'employee') {
         // Load employee balance
-        const { data: empData, error: empError } = await supabaseClient
+        const { data: empData } = await supabaseClient
           .from('employees')
           .select('*')
           .eq('id', currentUser.employeeId)
@@ -317,7 +374,7 @@
         if (empData) renderBalance(empData);
         
         // Load employee requests
-        const { data: reqData, error: reqError } = await supabaseClient
+        const { data: reqData } = await supabaseClient
           .from('leave_requests')
           .select('*')
           .eq('employee_id', currentUser.employeeId);
@@ -328,7 +385,7 @@
         }
         
         // Load notifications
-        const { data: notifData, error: notifError } = await supabaseClient
+        const { data: notifData } = await supabaseClient
           .from('notifications')
           .select('*')
           .eq('user_id', currentUser.employeeId)
@@ -341,14 +398,14 @@
         
       } else {
         // Load all employees for admin/manager
-        const { data: empData, error: empError } = await supabaseClient
+        const { data: empData } = await supabaseClient
           .from('employees')
           .select('*');
         
         if (empData) employees = empData;
         
         // Load all leave requests
-        const { data: reqData, error: reqError } = await supabaseClient
+        const { data: reqData } = await supabaseClient
           .from('leave_requests')
           .select('*');
         
@@ -358,7 +415,7 @@
         }
         
         // Load admin/manager notifications
-        const { data: notifData, error: notifError } = await supabaseClient
+        const { data: notifData } = await supabaseClient
           .from('notifications')
           .select('*')
           .eq('user_id', currentRole)
@@ -380,7 +437,7 @@
     }
   }
 
-  // Render functions (same as before)
+  // Render functions
   function renderBalance(d) { 
     balanceContainer.innerHTML = `<div class="balance-item">Casual: ${d.casual_quota - d.casual_used} / ${d.casual_quota}</div><div class="balance-item">Sick: ${d.sick_quota - d.sick_used} / ${d.sick_quota}</div><div class="balance-item">Annual: ${d.annual_quota - d.annual_used} / ${d.annual_quota}</div>`; 
   }
@@ -400,14 +457,12 @@
   }
   
   window.updateStatus = async (id, status) => {
-    // Update leave request status
     const { error: updateError } = await supabaseClient
       .from('leave_requests')
       .update({ status: status })
       .eq('id', id);
     
     if (!updateError) {
-      // Get the request details
       const { data: reqData } = await supabaseClient
         .from('leave_requests')
         .select('*')
@@ -415,7 +470,6 @@
         .single();
       
       if (reqData) {
-        // Create notification for employee
         await supabaseClient
           .from('notifications')
           .insert([{
@@ -427,7 +481,6 @@
             type: status === 'approved' ? 'success' : 'error'
           }]);
         
-        // If approved, update employee used quota
         if (status === 'approved') {
           const { data: empData } = await supabaseClient
             .from('employees')
@@ -537,7 +590,6 @@
     const { error } = await supabaseClient.from('leave_requests').insert([newRequest]);
     
     if (!error) {
-      // Create notifications for admin and manager
       const ts = Date.now();
       await supabaseClient.from('notifications').insert([
         { id: 'notif_' + ts + '_1', user_id: 'admin', message: `New leave request from ${currentUser.name}`, timestamp: ts, read: false, type: 'info' },
@@ -619,6 +671,7 @@
 
   // Start
   welcomeScreen.style.display = 'block';
+  addDebug('Ready. Waiting for login...');
 </script>
 </body>
 </html>
