@@ -2,10 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>LeaveFlow · Simplified</title>
+  <title>LeaveFlow · Supabase Edition</title>
   <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.4/css/all.css">
+  <!-- Supabase client library via CDN [citation:10] -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    /* Minimal, clean styling */
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
     body { background: #f4f7fb; padding: 2rem; }
     .app-container { max-width: 1400px; margin: 0 auto; }
@@ -61,12 +62,12 @@
   <div id="roleBadge" style="margin-bottom:1rem;">Not logged in</div>
   <div id="statusMessage"></div>
 
-  <!-- Modals -->
+  <!-- Modals (same structure as before) -->
   <div id="adminManagerModal" class="modal"><div class="modal-content"><span class="close-modal">&times;</span><h2 id="adminManagerModalTitle">Login</h2><input type="text" id="adminManagerUsername" placeholder="Username"><input type="password" id="adminManagerPassword" placeholder="Password"><button id="adminManagerLoginBtn">Login</button></div></div>
   <div id="employeeModal" class="modal"><div class="modal-content"><span class="close-modal">&times;</span><h2>Employee Login</h2><input type="text" id="employeeUsername" placeholder="Username"><input type="password" id="employeePassword" placeholder="Password"><button id="employeeLoginSubmitBtn">Login</button></div></div>
   <div id="editEmployeeModal" class="modal"><div class="modal-content"><span class="close-modal">&times;</span><h2>Edit Employee</h2><input type="hidden" id="editEmployeeId"><input type="text" id="editName" placeholder="Name"><input type="text" id="editDesignation" placeholder="Designation"><input type="text" id="editDept" placeholder="Department"><input type="text" id="editUsername" placeholder="Username"><h4>Leave Quotas</h4><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem"><div>Casual: <input type="number" id="editCasualQuota" value="12"></div><div>Sick: <input type="number" id="editSickQuota" value="10"></div><div>Annual: <input type="number" id="editAnnualQuota" value="15"></div></div><h4>Leave Used</h4><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem"><div>Casual: <input type="number" id="editCasualUsed" value="0"></div><div>Sick: <input type="number" id="editSickUsed" value="0"></div><div>Annual: <input type="number" id="editAnnualUsed" value="0"></div></div><button id="saveEditBtn">Save</button></div></div>
 
-  <!-- Dashboard -->
+  <!-- Dashboard (same as before) -->
   <div class="dashboard-grid">
     <!-- Employee Column -->
     <div id="employeeColumn" style="display:none;">
@@ -87,127 +88,537 @@
     <!-- Welcome -->
     <div id="welcomeScreen" style="grid-column:span 2; text-align:center; padding:4rem;"><h2>Welcome to LeaveFlow</h2><p>Please log in</p></div>
   </div>
-  <div class="footer">Google Sheets Backend</div>
+  <div class="footer">Supabase Backend</div>
 </div>
 
 <script>
-  // ========== CONFIGURATION ==========
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby0N_6GSjvFBUP0YKPuQdCY8ucMZgWWLyWVAzGDa7ZLoZMeIRet_8bv9GfntfxOowyU/exec';  // <-- REPLACE THIS
+  // ========== SUPABASE CONFIGURATION ==========
+  // REPLACE THESE WITH YOUR ACTUAL VALUES [citation:2]
+  const SUPABASE_URL = 'https://pzldqhhlxkcrulmeabhf.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6bGRxaGhseGtjcnVsbWVhYmhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODA5OTcsImV4cCI6MjA4ODg1Njk5N30.9GYYHDpdGGB5cVBApK_cSHEPUGe5uqfj4FpjHqPy5JA';
+  
+  // Initialize Supabase client
+  const { createClient } = supabase;
+  const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  function hashPassword(p) { let h=0; for(let c of p) h=((h<<5)-h)+c.charCodeAt(0); return h; }
+  // Simple hash function (keeping for password compatibility)
+  function hashPassword(p) { 
+    let h = 0; 
+    for (let c of p) h = ((h << 5) - h) + c.charCodeAt(0); 
+    return h; 
+  }
 
   // Data stores
-  let employees=[], leaveRequests=[], notifications=[], adminNotifications=[], availableLeaveDates=[], currentUser=null, currentRole=null;
+  let employees = [], leaveRequests = [], notifications = [], adminNotifications = [], availableLeaveDates = [], currentUser = null, currentRole = null;
 
   // DOM shortcuts
-  const el = id=>document.getElementById(id);
-  const roleBadge=el('roleBadge'), adminLoginBtn=el('adminLoginBtn'), managerLoginBtn=el('managerLoginBtn'), employeeLoginBtn=el('employeeLoginBtn'), logoutBtn=el('logoutBtn'), refreshBtn=el('refreshBtn'), adminMasterCard=el('adminMasterCard'), adminLeaveDatesCard=el('adminLeaveDatesCard'), balanceContainer=el('balanceContainer'), requestTableBody=el('requestTableBody'), notificationList=el('notificationList'), adminNotificationList=el('adminNotificationList'), notifCountSpan=el('notifCount'), adminNotifCountSpan=el('adminNotifCount'), pendingBadge=el('pendingBadge'), submitLeaveBtn=el('submitLeaveBtn'), leaveTypeSelect=el('leaveTypeSelect'), fromDate=el('fromDate'), toDate=el('toDate'), reason=el('reason'), empMasterContainer=el('empMasterContainer'), showAddEmpFormBtn=el('showAddEmpFormBtn'), addEmpForm=el('addEmpForm'), saveEmpBtn=el('saveEmpBtn'), statusMessage=el('statusMessage'), employeeColumn=el('employeeColumn'), adminManagerColumn=el('adminManagerColumn'), welcomeScreen=el('welcomeScreen'), availableLeaveDatesDiv=el('availableLeaveDates'), leaveDatesList=el('leaveDatesList'), newLeaveDate=el('newLeaveDate'), addLeaveDateBtn=el('addLeaveDateBtn'), globalNotificationBadge=el('globalNotificationBadge'), globalNotificationCount=el('globalNotificationCount');
+  const el = id => document.getElementById(id);
+  const roleBadge = el('roleBadge'), adminLoginBtn = el('adminLoginBtn'), managerLoginBtn = el('managerLoginBtn'), employeeLoginBtn = el('employeeLoginBtn'), logoutBtn = el('logoutBtn'), refreshBtn = el('refreshBtn'), adminMasterCard = el('adminMasterCard'), adminLeaveDatesCard = el('adminLeaveDatesCard'), balanceContainer = el('balanceContainer'), requestTableBody = el('requestTableBody'), notificationList = el('notificationList'), adminNotificationList = el('adminNotificationList'), notifCountSpan = el('notifCount'), adminNotifCountSpan = el('adminNotifCount'), pendingBadge = el('pendingBadge'), submitLeaveBtn = el('submitLeaveBtn'), leaveTypeSelect = el('leaveTypeSelect'), fromDate = el('fromDate'), toDate = el('toDate'), reason = el('reason'), empMasterContainer = el('empMasterContainer'), showAddEmpFormBtn = el('showAddEmpFormBtn'), addEmpForm = el('addEmpForm'), saveEmpBtn = el('saveEmpBtn'), statusMessage = el('statusMessage'), employeeColumn = el('employeeColumn'), adminManagerColumn = el('adminManagerColumn'), welcomeScreen = el('welcomeScreen'), availableLeaveDatesDiv = el('availableLeaveDates'), leaveDatesList = el('leaveDatesList'), newLeaveDate = el('newLeaveDate'), addLeaveDateBtn = el('addLeaveDateBtn'), globalNotificationBadge = el('globalNotificationBadge'), globalNotificationCount = el('globalNotificationCount');
 
   // Modal elements
-  const adminManagerModal=el('adminManagerModal'), adminManagerModalTitle=el('adminManagerModalTitle'), adminManagerUsername=el('adminManagerUsername'), adminManagerPassword=el('adminManagerPassword'), adminManagerLoginBtn=el('adminManagerLoginBtn'), employeeModal=el('employeeModal'), employeeUsername=el('employeeUsername'), employeePassword=el('employeePassword'), employeeLoginSubmitBtn=el('employeeLoginSubmitBtn'), editEmployeeModal=el('editEmployeeModal'), editEmployeeId=el('editEmployeeId'), editName=el('editName'), editDesignation=el('editDesignation'), editDept=el('editDept'), editUsername=el('editUsername'), editCasualQuota=el('editCasualQuota'), editSickQuota=el('editSickQuota'), editAnnualQuota=el('editAnnualQuota'), editCasualUsed=el('editCasualUsed'), editSickUsed=el('editSickUsed'), editAnnualUsed=el('editAnnualUsed'), saveEditBtn=el('saveEditBtn');
+  const adminManagerModal = el('adminManagerModal'), adminManagerModalTitle = el('adminManagerModalTitle'), adminManagerUsername = el('adminManagerUsername'), adminManagerPassword = el('adminManagerPassword'), adminManagerLoginBtn = el('adminManagerLoginBtn'), employeeModal = el('employeeModal'), employeeUsername = el('employeeUsername'), employeePassword = el('employeePassword'), employeeLoginSubmitBtn = el('employeeLoginSubmitBtn'), editEmployeeModal = el('editEmployeeModal'), editEmployeeId = el('editEmployeeId'), editName = el('editName'), editDesignation = el('editDesignation'), editDept = el('editDept'), editUsername = el('editUsername'), editCasualQuota = el('editCasualQuota'), editSickQuota = el('editSickQuota'), editAnnualQuota = el('editAnnualQuota'), editCasualUsed = el('editCasualUsed'), editSickUsed = el('editSickUsed'), editAnnualUsed = el('editAnnualUsed'), saveEditBtn = el('saveEditBtn');
 
-  let pendingAdminManagerRole='admin';
+  let pendingAdminManagerRole = 'admin';
 
   // Set default dates
-  const today=new Date(); fromDate.value=today.toISOString().split('T')[0]; toDate.value=new Date(today.setDate(today.getDate()+1)).toISOString().split('T')[0]; newLeaveDate.value=new Date().toISOString().split('T')[0];
+  const today = new Date(); 
+  fromDate.value = today.toISOString().split('T')[0]; 
+  toDate.value = new Date(today.setDate(today.getDate() + 1)).toISOString().split('T')[0]; 
+  newLeaveDate.value = new Date().toISOString().split('T')[0];
 
   // Modal controls
-  window.toggleNotificationPanel=()=>{ if(currentRole==='employee') el('notificationList').scrollIntoView({behavior:'smooth'}); else el('adminNotificationList').scrollIntoView({behavior:'smooth'}); };
-  function openAdminManagerModal(r){ pendingAdminManagerRole=r; adminManagerModalTitle.textContent=r==='admin'?'Admin Login':'Manager Login'; adminManagerUsername.value=''; adminManagerPassword.value=''; adminManagerModal.style.display='block'; }
-  function closeAdminManagerModal(){ adminManagerModal.style.display='none'; }
-  function openEmployeeModal(){ employeeUsername.value=''; employeePassword.value=''; employeeModal.style.display='block'; }
-  window.closeEmployeeModal=()=> employeeModal.style.display='none';
-  window.closeEditModal=()=> editEmployeeModal.style.display='none';
-  document.querySelectorAll('.close-modal').forEach(b=>b.addEventListener('click',()=>{ closeAdminManagerModal(); closeEmployeeModal(); closeEditModal(); }));
-  window.onclick=e=>{ if(e.target===adminManagerModal) closeAdminManagerModal(); if(e.target===employeeModal) closeEmployeeModal(); if(e.target===editEmployeeModal) closeEditModal(); };
+  window.toggleNotificationPanel = () => { 
+    if (currentRole === 'employee') el('notificationList').scrollIntoView({ behavior: 'smooth' }); 
+    else el('adminNotificationList').scrollIntoView({ behavior: 'smooth' }); 
+  };
+  
+  function openAdminManagerModal(r) { 
+    pendingAdminManagerRole = r; 
+    adminManagerModalTitle.textContent = r === 'admin' ? 'Admin Login' : 'Manager Login'; 
+    adminManagerUsername.value = ''; 
+    adminManagerPassword.value = ''; 
+    adminManagerModal.style.display = 'block'; 
+  }
+  
+  function closeAdminManagerModal() { adminManagerModal.style.display = 'none'; }
+  function openEmployeeModal() { employeeUsername.value = ''; employeePassword.value = ''; employeeModal.style.display = 'block'; }
+  window.closeEmployeeModal = () => employeeModal.style.display = 'none';
+  window.closeEditModal = () => editEmployeeModal.style.display = 'none';
+  
+  document.querySelectorAll('.close-modal').forEach(b => b.addEventListener('click', () => { 
+    closeAdminManagerModal(); closeEmployeeModal(); closeEditModal(); 
+  }));
+  
+  window.onclick = e => { 
+    if (e.target === adminManagerModal) closeAdminManagerModal(); 
+    if (e.target === employeeModal) closeEmployeeModal(); 
+    if (e.target === editEmployeeModal) closeEditModal(); 
+  };
 
-  // ---------- Real API call ----------
-  async function callAppsScript(action, data={}) {
-    const url = new URL(APPS_SCRIPT_URL);
-    url.searchParams.append('action', action);
-    if (typeof data === 'object') url.searchParams.append('data', JSON.stringify(data));
+  // ========== SUPABASE API FUNCTIONS ==========
+  // Using supabase-js client library [citation:2]
+
+  async function loginUser(username, password, role) {
+    const hash = hashPassword(password).toString();
+    
+    if (role === 'admin' || role === 'manager') {
+      const { data, error } = await supabaseClient
+        .from('users')
+        .select('*')
+        .eq('username', username)
+        .eq('password_hash', hash)
+        .eq('role', role)
+        .single();
+      
+      if (data) {
+        return { success: true, user: data };
+      }
+    } else {
+      const { data, error } = await supabaseClient
+        .from('employees')
+        .select('*')
+        .eq('username', username)
+        .eq('password_hash', hash)
+        .single();
+      
+      if (data) {
+        return { success: true, employee: data };
+      }
+    }
+    return { success: false };
+  }
+
+  // Authentication functions
+  async function adminManagerLogin(u, p, r) {
+    if (!u || !p) return showMessage('error', 'Enter credentials');
+    const result = await loginUser(u, p, r);
+    
+    if (result.success && result.user) {
+      currentUser = result.user;
+      currentRole = result.user.role;
+      updateUIAfterLogin();
+      closeAdminManagerModal();
+      showMessage('success', `Welcome ${result.user.name}`);
+      loadAllData();
+      setupRealtimeNotifications();
+    } else {
+      showMessage('error', 'Invalid credentials');
+    }
+  }
+  
+  async function employeeLogin(u, p) {
+    if (!u || !p) return showMessage('error', 'Enter credentials');
+    const result = await loginUser(u, p, 'employee');
+    
+    if (result.success && result.employee) {
+      currentUser = { 
+        id: result.employee.id, 
+        name: result.employee.name, 
+        role: 'employee', 
+        employeeId: result.employee.id 
+      };
+      currentRole = 'employee';
+      updateUIAfterLogin();
+      closeEmployeeModal();
+      showMessage('success', `Welcome ${result.employee.name}`);
+      loadAllData();
+      setupRealtimeNotifications();
+    } else {
+      showMessage('error', 'Invalid credentials');
+    }
+  }
+  
+  function updateUIAfterLogin() {
+    adminLoginBtn.style.display = 'none'; 
+    managerLoginBtn.style.display = 'none'; 
+    employeeLoginBtn.style.display = 'none'; 
+    logoutBtn.style.display = 'inline-block';
+    roleBadge.innerHTML = `Logged in as: ${currentRole}`;
+    
+    if (currentRole === 'employee') { 
+      employeeColumn.style.display = 'block'; 
+      adminManagerColumn.style.display = 'none'; 
+    } else { 
+      employeeColumn.style.display = 'none'; 
+      adminManagerColumn.style.display = 'block'; 
+      if (currentRole === 'admin') { 
+        adminMasterCard.classList.remove('hidden'); 
+        adminLeaveDatesCard.classList.remove('hidden'); 
+      } else { 
+        adminMasterCard.classList.add('hidden'); 
+        adminLeaveDatesCard.classList.add('hidden'); 
+      } 
+    }
+    welcomeScreen.style.display = 'none';
+  }
+  
+  function logout() {
+    currentUser = null; 
+    currentRole = null;
+    adminLoginBtn.style.display = 'inline-block'; 
+    managerLoginBtn.style.display = 'inline-block'; 
+    employeeLoginBtn.style.display = 'inline-block'; 
+    logoutBtn.style.display = 'none';
+    employeeColumn.style.display = 'none'; 
+    adminManagerColumn.style.display = 'none'; 
+    welcomeScreen.style.display = 'block'; 
+    globalNotificationBadge.style.display = 'none';
+    roleBadge.innerHTML = 'Not logged in';
+  }
+
+  // Set up realtime notifications [citation:4]
+  function setupRealtimeNotifications() {
+    if (!currentUser) return;
+    
+    const userId = currentRole === 'employee' ? currentUser.employeeId : currentRole;
+    
+    supabaseClient
+      .channel('notifications-channel')
+      .on(
+        'postgres_changes',
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`
+        },
+        (payload) => {
+          console.log('New notification:', payload);
+          loadAllData(); // Refresh data when new notification arrives
+        }
+      )
+      .subscribe();
+  }
+
+  // ========== DATA LOADING FUNCTIONS ==========
+  async function loadAllData() {
+    if (!currentUser) return;
+    
     try {
-      const resp = await fetch(url, { mode: 'cors' });
-      return await resp.json();
-    } catch (e) {
-      showMessage('error', 'Connection failed');
-      return { success: false };
+      // Load available leave dates
+      const { data: datesData, error: datesError } = await supabaseClient
+        .from('available_leave_dates')
+        .select('*');
+      
+      if (!datesError) {
+        availableLeaveDates = datesData || [];
+        renderAvailableLeaveDates();
+        if (currentRole === 'admin') renderLeaveDatesList();
+      }
+      
+      if (currentRole === 'employee') {
+        // Load employee balance
+        const { data: empData, error: empError } = await supabaseClient
+          .from('employees')
+          .select('*')
+          .eq('id', currentUser.employeeId)
+          .single();
+        
+        if (empData) renderBalance(empData);
+        
+        // Load employee requests
+        const { data: reqData, error: reqError } = await supabaseClient
+          .from('leave_requests')
+          .select('*')
+          .eq('employee_id', currentUser.employeeId);
+        
+        if (reqData) {
+          leaveRequests = reqData;
+          renderEmployeeRequests();
+        }
+        
+        // Load notifications
+        const { data: notifData, error: notifError } = await supabaseClient
+          .from('notifications')
+          .select('*')
+          .eq('user_id', currentUser.employeeId)
+          .order('timestamp', { ascending: false });
+        
+        if (notifData) {
+          notifications = notifData;
+          renderNotifications(notificationList, notifCountSpan, notifications);
+        }
+        
+      } else {
+        // Load all employees for admin/manager
+        const { data: empData, error: empError } = await supabaseClient
+          .from('employees')
+          .select('*');
+        
+        if (empData) employees = empData;
+        
+        // Load all leave requests
+        const { data: reqData, error: reqError } = await supabaseClient
+          .from('leave_requests')
+          .select('*');
+        
+        if (reqData) {
+          leaveRequests = reqData;
+          renderRequestTable();
+        }
+        
+        // Load admin/manager notifications
+        const { data: notifData, error: notifError } = await supabaseClient
+          .from('notifications')
+          .select('*')
+          .eq('user_id', currentRole)
+          .order('timestamp', { ascending: false });
+        
+        if (notifData) {
+          adminNotifications = notifData;
+          renderNotifications(adminNotificationList, adminNotifCountSpan, adminNotifications);
+        }
+        
+        if (currentRole === 'admin') renderEmployeeMaster();
+      }
+      
+      updateGlobalNotificationBadge();
+      
+    } catch (e) { 
+      console.error('Error loading data:', e);
+      showMessage('error', 'Failed to load data'); 
     }
   }
 
-  // Authentication
-  async function adminManagerLogin(u,p,r){ if(!u||!p) return showMessage('error','Enter credentials'); const res=await callAppsScript('authenticateUser',{username:u,passwordHash:hashPassword(p),role:r}); if(res.success && res.user){ currentUser=res.user; currentRole=res.user.role; updateUIAfterLogin(); closeAdminManagerModal(); showMessage('success',`Welcome ${res.user.name}`); loadAllData(); } else showMessage('error','Invalid credentials'); }
-  async function employeeLogin(u,p){ if(!u||!p) return showMessage('error','Enter credentials'); const res=await callAppsScript('authenticateEmployee',{username:u,passwordHash:hashPassword(p)}); if(res.success && res.employee){ currentUser={id:res.employee.id,name:res.employee.name,role:'employee',employeeId:res.employee.id}; currentRole='employee'; updateUIAfterLogin(); closeEmployeeModal(); showMessage('success',`Welcome ${res.employee.name}`); loadAllData(); } else showMessage('error','Invalid credentials'); }
-  function updateUIAfterLogin(){
-    adminLoginBtn.style.display='none'; managerLoginBtn.style.display='none'; employeeLoginBtn.style.display='none'; logoutBtn.style.display='inline-block';
-    roleBadge.innerHTML=`Logged in as: ${currentRole}`;
-    if(currentRole==='employee'){ employeeColumn.style.display='block'; adminManagerColumn.style.display='none'; }
-    else { employeeColumn.style.display='none'; adminManagerColumn.style.display='block'; if(currentRole==='admin'){ adminMasterCard.classList.remove('hidden'); adminLeaveDatesCard.classList.remove('hidden'); } else { adminMasterCard.classList.add('hidden'); adminLeaveDatesCard.classList.add('hidden'); } }
-    welcomeScreen.style.display='none';
+  // Render functions (same as before)
+  function renderBalance(d) { 
+    balanceContainer.innerHTML = `<div class="balance-item">Casual: ${d.casual_quota - d.casual_used} / ${d.casual_quota}</div><div class="balance-item">Sick: ${d.sick_quota - d.sick_used} / ${d.sick_quota}</div><div class="balance-item">Annual: ${d.annual_quota - d.annual_used} / ${d.annual_quota}</div>`; 
   }
-  function logout(){
-    currentUser=null; currentRole=null;
-    adminLoginBtn.style.display='inline-block'; managerLoginBtn.style.display='inline-block'; employeeLoginBtn.style.display='inline-block'; logoutBtn.style.display='none';
-    employeeColumn.style.display='none'; adminManagerColumn.style.display='none'; welcomeScreen.style.display='block'; globalNotificationBadge.style.display='none';
-    roleBadge.innerHTML='Not logged in';
+  
+  function renderAvailableLeaveDates() { 
+    availableLeaveDatesDiv.innerHTML = availableLeaveDates.length ? availableLeaveDates.map(d => `<div class="leave-date-item">${d.date} <span class="badge available">Available</span></div>`).join('') : '<div>No dates</div>'; 
   }
-
-  // Data loading & rendering (simplified but complete)
-  async function loadAllData(){
-    if(!currentUser) return;
-    try {
-      if(currentRole==='employee'){
-        let b=await callAppsScript('getEmployeeBalance',{employeeId:currentUser.employeeId});
-        if(b.success) renderBalance(b.data);
-        let r=await callAppsScript('getEmployeeRequests',{employeeId:currentUser.employeeId});
-        if(r.success){ leaveRequests=r.data; renderEmployeeRequests(); }
-        let n=await callAppsScript('getEmployeeNotifications',{employeeId:currentUser.employeeId});
-        if(n.success){ notifications=n.data; renderNotifications(notificationList,notifCountSpan,notifications); }
-      } else {
-        let e=await callAppsScript('getAllEmployees');
-        if(e.success) employees=e.data;
-        let req=await callAppsScript('getAllLeaveRequests');
-        if(req.success){ leaveRequests=req.data; renderRequestTable(); }
-        let not=await callAppsScript('getAllNotifications',{role:currentRole});
-        if(not.success){ adminNotifications=not.data; renderNotifications(adminNotificationList,adminNotifCountSpan,adminNotifications); }
-        if(currentRole==='admin'){ renderEmployeeMaster(); }
+  
+  function renderEmployeeRequests() { 
+    requestTableBody.innerHTML = leaveRequests.map(r => `<tr><td>${r.employee_name}</td><td>${r.type}</td><td>${r.from_date}→${r.to_date}</td><td>${r.reason}</td><td><span class="badge ${r.status}">${r.status}</span></td><td></td></tr>`).join(''); 
+  }
+  
+  function renderRequestTable() { 
+    const pc = leaveRequests.filter(r => r.status === 'pending').length; 
+    pendingBadge.innerText = pc; 
+    requestTableBody.innerHTML = leaveRequests.map(r => `<tr><td>${r.employee_name}</td><td>${r.type}</td><td>${r.from_date}→${r.to_date}</td><td>${r.reason}</td><td><span class="badge ${r.status}">${r.status}</span></td><td>${(currentRole === 'admin' || currentRole === 'manager') && r.status === 'pending' ? `<button class="action-btn approve" onclick="updateStatus('${r.id}','approved')">✓</button><button class="action-btn reject" onclick="updateStatus('${r.id}','rejected')">✗</button>` : ''}</td></tr>`).join(''); 
+  }
+  
+  window.updateStatus = async (id, status) => {
+    // Update leave request status
+    const { error: updateError } = await supabaseClient
+      .from('leave_requests')
+      .update({ status: status })
+      .eq('id', id);
+    
+    if (!updateError) {
+      // Get the request details
+      const { data: reqData } = await supabaseClient
+        .from('leave_requests')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (reqData) {
+        // Create notification for employee
+        await supabaseClient
+          .from('notifications')
+          .insert([{
+            id: 'notif_' + Date.now(),
+            user_id: reqData.employee_id,
+            message: `Your leave request was ${status} by ${currentRole}`,
+            timestamp: Date.now(),
+            read: false,
+            type: status === 'approved' ? 'success' : 'error'
+          }]);
+        
+        // If approved, update employee used quota
+        if (status === 'approved') {
+          const { data: empData } = await supabaseClient
+            .from('employees')
+            .select('*')
+            .eq('id', reqData.employee_id)
+            .single();
+          
+          if (empData) {
+            const updateField = reqData.type === 'Casual' ? 'casual_used' : 
+                               reqData.type === 'Sick' ? 'sick_used' : 'annual_used';
+            
+            await supabaseClient
+              .from('employees')
+              .update({ [updateField]: empData[updateField] + 1 })
+              .eq('id', reqData.employee_id);
+          }
+        }
       }
-      let d=await callAppsScript('getAvailableLeaveDates');
-      if(d.success){ availableLeaveDates=d.data; renderAvailableLeaveDates(); if(currentRole==='admin') renderLeaveDatesList(); }
-      updateGlobalNotificationBadge();
-    } catch(e){ showMessage('error','Failed to load data'); }
+      
+      showMessage('success', `Request ${status}`);
+      loadAllData();
+    }
+  };
+  
+  function renderNotifications(container, count, list) { 
+    container.innerHTML = list.map(n => `<div class="notif-item">${n.message}</div>`).join(''); 
+    if (count) count.innerText = list.filter(n => !n.read).length; 
   }
-
-  function renderBalance(d){ balanceContainer.innerHTML=`<div class="balance-item">Casual: ${d.casualQuota-d.casualUsed} / ${d.casualQuota}</div><div class="balance-item">Sick: ${d.sickQuota-d.sickUsed} / ${d.sickQuota}</div><div class="balance-item">Annual: ${d.annualQuota-d.annualUsed} / ${d.annualQuota}</div>`; }
-  function renderAvailableLeaveDates(){ availableLeaveDatesDiv.innerHTML=availableLeaveDates.length? availableLeaveDates.map(d=>`<div class="leave-date-item">${d.date} <span class="badge available">Available</span></div>`).join('') : '<div>No dates</div>'; }
-  function renderEmployeeRequests(){ requestTableBody.innerHTML=leaveRequests.map(r=>`<tr><td>${r.employeeName}</td><td>${r.type}</td><td>${r.from}→${r.to}</td><td>${r.reason}</td><td><span class="badge ${r.status}">${r.status}</span></td><td></td></tr>`).join(''); }
-  function renderRequestTable(){ const pc=leaveRequests.filter(r=>r.status==='pending').length; pendingBadge.innerText=pc; requestTableBody.innerHTML=leaveRequests.map(r=>`<tr><td>${r.employeeName}</td><td>${r.type}</td><td>${r.from}→${r.to}</td><td>${r.reason}</td><td><span class="badge ${r.status}">${r.status}</span></td><td>${(currentRole==='admin'||currentRole==='manager') && r.status==='pending' ? `<button class="action-btn approve" data-id="${r.id}" onclick="updateStatus('${r.id}','approved')">✓</button><button class="action-btn reject" data-id="${r.id}" onclick="updateStatus('${r.id}','rejected')">✗</button>` : ''}</td></tr>`).join(''); }
-  window.updateStatus=async(id,status)=>{ await callAppsScript('updateRequestStatus',{requestId:id,status,updatedBy:currentRole}); loadAllData(); };
-  function renderNotifications(container,count,list){ container.innerHTML=list.map(n=>`<div class="notif-item">${n.message}</div>`).join(''); if(count) count.innerText=list.filter(n=>!n.read).length; }
-  function renderEmployeeMaster(){ empMasterContainer.innerHTML=employees.map(e=>`<div class="emp-row"><div><strong>${e.name}</strong> ${e.designation} (${e.dept})<br>Username: ${e.username}<br>Leaves: C:${e.casualUsed}/${e.casualQuota} S:${e.sickUsed}/${e.sickQuota} A:${e.annualUsed}/${e.annualQuota}</div><div><button class="action-btn" onclick="openEditModal('${e.id}')">✎</button><button class="action-btn" onclick="deleteEmp('${e.id}')">🗑</button></div></div>`).join(''); }
-  window.openEditModal=id=>{ let e=employees.find(x=>x.id===id); if(e){ editEmployeeId.value=e.id; editName.value=e.name; editDesignation.value=e.designation; editDept.value=e.dept; editUsername.value=e.username; editCasualQuota.value=e.casualQuota; editSickQuota.value=e.sickQuota; editAnnualQuota.value=e.annualQuota; editCasualUsed.value=e.casualUsed; editSickUsed.value=e.sickUsed; editAnnualUsed.value=e.annualUsed; editEmployeeModal.style.display='block'; } };
-  window.deleteEmp=async id=>{ if(confirm('Delete?')){ await callAppsScript('deleteEmployee',{id}); loadAllData(); } };
-  function renderLeaveDatesList(){ leaveDatesList.innerHTML=availableLeaveDates.map(d=>`<div class="leave-date-item">${d.date} <button onclick="deleteLeaveDate('${d.id}')">✗</button></div>`).join(''); }
-  window.deleteLeaveDate=async id=>{ await callAppsScript('deleteLeaveDate',{id}); loadAllData(); };
-  function updateGlobalNotificationBadge(){ let c=(currentRole==='employee'?notifications:adminNotifications)||[]; let u=c.filter(n=>!n.read).length; if(u){ globalNotificationBadge.style.display='inline-block'; globalNotificationCount.innerText=u; } else globalNotificationBadge.style.display='none'; }
-  function showMessage(t,m){ statusMessage.innerHTML=`<div class="${t}-message">${m}</div>`; setTimeout(()=>statusMessage.innerHTML='',3000); }
+  
+  function renderEmployeeMaster() { 
+    empMasterContainer.innerHTML = employees.map(e => `<div class="emp-row"><div><strong>${e.name}</strong> ${e.designation} (${e.dept})<br>Username: ${e.username}<br>Leaves: C:${e.casual_used}/${e.casual_quota} S:${e.sick_used}/${e.sick_quota} A:${e.annual_used}/${e.annual_quota}</div><div><button class="action-btn" onclick="openEditModal('${e.id}')">✎</button><button class="action-btn" onclick="deleteEmp('${e.id}')">🗑</button></div></div>`).join(''); 
+  }
+  
+  window.openEditModal = id => { 
+    let e = employees.find(x => x.id === id); 
+    if (e) { 
+      editEmployeeId.value = e.id; 
+      editName.value = e.name; 
+      editDesignation.value = e.designation; 
+      editDept.value = e.dept; 
+      editUsername.value = e.username; 
+      editCasualQuota.value = e.casual_quota; 
+      editSickQuota.value = e.sick_quota; 
+      editAnnualQuota.value = e.annual_quota; 
+      editCasualUsed.value = e.casual_used; 
+      editSickUsed.value = e.sick_used; 
+      editAnnualUsed.value = e.annual_used; 
+      editEmployeeModal.style.display = 'block'; 
+    } 
+  };
+  
+  window.deleteEmp = async id => { 
+    if (confirm('Delete?')) { 
+      await supabaseClient.from('employees').delete().eq('id', id);
+      loadAllData(); 
+    } 
+  };
+  
+  function renderLeaveDatesList() { 
+    leaveDatesList.innerHTML = availableLeaveDates.map(d => `<div class="leave-date-item">${d.date} <button onclick="deleteLeaveDate('${d.id}')">✗</button></div>`).join(''); 
+  }
+  
+  window.deleteLeaveDate = async id => { 
+    await supabaseClient.from('available_leave_dates').delete().eq('id', id);
+    loadAllData(); 
+  };
+  
+  function updateGlobalNotificationBadge() { 
+    let c = (currentRole === 'employee' ? notifications : adminNotifications) || []; 
+    let u = c.filter(n => !n.read).length; 
+    if (u) { 
+      globalNotificationBadge.style.display = 'inline-block'; 
+      globalNotificationCount.innerText = u; 
+    } else { 
+      globalNotificationBadge.style.display = 'none'; 
+    } 
+  }
+  
+  function showMessage(t, m) { 
+    statusMessage.innerHTML = `<div class="${t}-message">${m}</div>`; 
+    setTimeout(() => statusMessage.innerHTML = '', 3000); 
+  }
 
   // Event listeners
-  adminLoginBtn.onclick=()=>openAdminManagerModal('admin');
-  managerLoginBtn.onclick=()=>openAdminManagerModal('manager');
-  employeeLoginBtn.onclick=openEmployeeModal;
-  adminManagerLoginBtn.onclick=()=>adminManagerLogin(adminManagerUsername.value, adminManagerPassword.value, pendingAdminManagerRole);
-  employeeLoginSubmitBtn.onclick=()=>employeeLogin(employeeUsername.value, employeePassword.value);
-  logoutBtn.onclick=logout;
-  refreshBtn.onclick=()=>{ loadAllData(); showMessage('success','Refreshed'); };
-  submitLeaveBtn.onclick=async()=>{ if(!currentUser || currentRole!=='employee') return showMessage('error','Login as employee'); let d={employeeId:currentUser.employeeId, employeeName:currentUser.name, type:leaveTypeSelect.value, from:fromDate.value, to:toDate.value, reason:reason.value}; let r=await callAppsScript('addLeaveRequest',d); if(r.success){ showMessage('success','Submitted'); reason.value=''; loadAllData(); } };
-  saveEmpBtn.onclick=async()=>{ if(currentRole!=='admin') return; let d={name:el('empName').value, designation:el('empDesignation').value, dept:el('empDept').value, username:el('empUsername').value, passwordHash:hashPassword(el('empPassword').value), casualQuota:parseInt(el('empCasualQuota').value), sickQuota:parseInt(el('empSickQuota').value), annualQuota:parseInt(el('empAnnualQuota').value), casualUsed:0, sickUsed:0, annualUsed:0}; let r=await callAppsScript('addEmployee',d); if(r.success){ showMessage('success','Added'); el('addEmpForm').style.display='none'; loadAllData(); } };
-  saveEditBtn.onclick=async()=>{ let d={id:editEmployeeId.value, name:editName.value, designation:editDesignation.value, dept:editDept.value, username:editUsername.value, casualQuota:parseInt(editCasualQuota.value), sickQuota:parseInt(editSickQuota.value), annualQuota:parseInt(editAnnualQuota.value), casualUsed:parseInt(editCasualUsed.value), sickUsed:parseInt(editSickUsed.value), annualUsed:parseInt(editAnnualUsed.value)}; let r=await callAppsScript('updateEmployee',d); if(r.success){ showMessage('success','Updated'); closeEditModal(); loadAllData(); } };
-  addLeaveDateBtn.onclick=async()=>{ let d={date:newLeaveDate.value}; let r=await callAppsScript('addLeaveDate',d); if(r.success){ showMessage('success','Date added'); loadAllData(); } };
-  showAddEmpFormBtn.onclick=()=> addEmpForm.style.display=addEmpForm.style.display==='none'?'block':'none';
+  adminLoginBtn.onclick = () => openAdminManagerModal('admin');
+  managerLoginBtn.onclick = () => openAdminManagerModal('manager');
+  employeeLoginBtn.onclick = openEmployeeModal;
+  adminManagerLoginBtn.onclick = () => adminManagerLogin(adminManagerUsername.value, adminManagerPassword.value, pendingAdminManagerRole);
+  employeeLoginSubmitBtn.onclick = () => employeeLogin(employeeUsername.value, employeePassword.value);
+  logoutBtn.onclick = logout;
+  refreshBtn.onclick = () => { loadAllData(); showMessage('success', 'Refreshed'); };
+  
+  submitLeaveBtn.onclick = async () => { 
+    if (!currentUser || currentRole !== 'employee') return showMessage('error', 'Login as employee'); 
+    
+    const newRequest = {
+      id: 'req_' + Date.now(),
+      employee_id: currentUser.employeeId,
+      employee_name: currentUser.name,
+      type: leaveTypeSelect.value,
+      from_date: fromDate.value,
+      to_date: toDate.value,
+      reason: reason.value,
+      status: 'pending'
+    };
+    
+    const { error } = await supabaseClient.from('leave_requests').insert([newRequest]);
+    
+    if (!error) {
+      // Create notifications for admin and manager
+      const ts = Date.now();
+      await supabaseClient.from('notifications').insert([
+        { id: 'notif_' + ts + '_1', user_id: 'admin', message: `New leave request from ${currentUser.name}`, timestamp: ts, read: false, type: 'info' },
+        { id: 'notif_' + ts + '_2', user_id: 'manager', message: `New leave request from ${currentUser.name}`, timestamp: ts, read: false, type: 'info' }
+      ]);
+      
+      showMessage('success', 'Submitted'); 
+      reason.value = ''; 
+      loadAllData(); 
+    }
+  };
+  
+  saveEmpBtn.onclick = async () => { 
+    if (currentRole !== 'admin') return; 
+    
+    const newEmployee = {
+      id: 'emp_' + Date.now(),
+      name: el('empName').value,
+      designation: el('empDesignation').value,
+      dept: el('empDept').value,
+      username: el('empUsername').value,
+      password_hash: hashPassword(el('empPassword').value).toString(),
+      casual_quota: parseInt(el('empCasualQuota').value) || 12,
+      sick_quota: parseInt(el('empSickQuota').value) || 10,
+      annual_quota: parseInt(el('empAnnualQuota').value) || 15,
+      casual_used: 0,
+      sick_used: 0,
+      annual_used: 0
+    };
+    
+    const { error } = await supabaseClient.from('employees').insert([newEmployee]);
+    
+    if (!error) { 
+      showMessage('success', 'Added'); 
+      el('addEmpForm').style.display = 'none'; 
+      loadAllData(); 
+    }
+  };
+  
+  saveEditBtn.onclick = async () => { 
+    const updates = {
+      name: editName.value,
+      designation: editDesignation.value,
+      dept: editDept.value,
+      username: editUsername.value,
+      casual_quota: parseInt(editCasualQuota.value),
+      sick_quota: parseInt(editSickQuota.value),
+      annual_quota: parseInt(editAnnualQuota.value),
+      casual_used: parseInt(editCasualUsed.value),
+      sick_used: parseInt(editSickUsed.value),
+      annual_used: parseInt(editAnnualUsed.value)
+    };
+    
+    const { error } = await supabaseClient
+      .from('employees')
+      .update(updates)
+      .eq('id', editEmployeeId.value);
+    
+    if (!error) { 
+      showMessage('success', 'Updated'); 
+      closeEditModal(); 
+      loadAllData(); 
+    }
+  };
+  
+  addLeaveDateBtn.onclick = async () => { 
+    const newDate = {
+      id: 'date_' + Date.now(),
+      date: newLeaveDate.value,
+      status: 'available'
+    };
+    
+    await supabaseClient.from('available_leave_dates').insert([newDate]);
+    showMessage('success', 'Date added'); 
+    loadAllData(); 
+  };
+  
+  showAddEmpFormBtn.onclick = () => addEmpForm.style.display = addEmpForm.style.display === 'none' ? 'block' : 'none';
 
   // Start
-  welcomeScreen.style.display='block';
+  welcomeScreen.style.display = 'block';
 </script>
 </body>
 </html>
