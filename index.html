@@ -61,6 +61,13 @@
   </div>
   <div id="roleBadge" style="margin-bottom:1rem;">Not logged in</div>
   
+  <!-- Debug Panel (shows login attempts) -->
+  <div class="debug-panel" id="debugPanel">
+    <strong>Debug Log:</strong> Ready...
+  </div>
+  
+  <div id="statusMessage"></div>
+
   <!-- Modals -->
   <div id="adminManagerModal" class="modal">
     <div class="modal-content">
@@ -128,7 +135,7 @@
     <!-- Welcome -->
     <div id="welcomeScreen" style="grid-column:span 2; text-align:center; padding:4rem;"><h2>Welcome to LeaveFlow</h2><p>Please log in</p></div>
   </div>
-  <div class="footer">Supabase Backend</div>
+  <div class="footer"></div>
 </div>
 
 <script>
