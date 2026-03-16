@@ -2,21 +2,27 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>LeaveFlow · Working Version</title>
+  <title>LeaveFlow · with User Profile</title>
   <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.4/css/all.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
     body { background: #f4f7fb; padding: 2rem; }
     .app-container { max-width: 1400px; margin: 0 auto; }
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
     .logo { font-size: 2rem; font-weight: 700; color: #2563eb; }
+    .header-right { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .user-profile { display: flex; align-items: center; gap: 10px; background: white; padding: 0.5rem 1.2rem; border-radius: 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .user-avatar { width: 36px; height: 36px; background: #2563eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 1rem; }
+    .user-info { line-height: 1.3; }
+    .user-name { font-weight: 600; font-size: 0.95rem; }
+    .user-role { font-size: 0.8rem; color: #64748b; }
     .login-panel button { background: white; border: none; padding: 0.5rem 1.2rem; border-radius: 40px; margin: 0 0.2rem; cursor: pointer; }
     #adminLoginBtn { background: #1e293b; color: white; }
     #managerLoginBtn { background: #4f5b66; color: white; }
     #employeeLoginBtn { background: #2563eb; color: white; }
     #logoutBtn { background: #ef4444; color: white; display: none; }
-    .refresh-btn { background: #10b981; color: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; margin: 0 10px; }
+    .refresh-btn { background: #10b981; color: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
     .notification-badge { position: relative; display: inline-block; cursor: pointer; }
     .badge-count { position: absolute; top: -8px; right: -8px; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 12px; }
     .dashboard-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; }
@@ -37,20 +43,41 @@
     .badge.rejected { background: #fee2e2; color: #991b1b; }
     .action-btn { border: none; background: none; font-size: 1.2rem; margin: 0 5px; cursor: pointer; }
     .notif-area { max-height: 250px; overflow-y: auto; }
+    .notif-item { padding: 0.5rem; border-bottom: 1px solid #e2e8f0; cursor: pointer; transition: background 0.2s; }
+    .notif-item:hover { background: #f1f5f9; }
+    .notif-item.unread { font-weight: 600; background: #f0f9ff; }
     .leave-dates-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px,1fr)); gap: 0.5rem; }
     .footer { text-align: center; margin-top: 2rem; color: #64748b; }
-    .debug-panel { background: #1e293b; color: #fff; padding: 1rem; border-radius: 16px; margin-bottom: 1rem; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; }
+    /* Toast container */
+    #toastContainer { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+    .toast { background: white; border-radius: 40px; padding: 12px 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 10px; animation: slideIn 0.3s ease; max-width: 300px; }
+    .toast.success { border-left: 5px solid #10b981; }
+    .toast.error { border-left: 5px solid #ef4444; }
+    .toast.info { border-left: 5px solid #3b82f6; }
+    .toast button { background: none; border: none; color: #64748b; cursor: pointer; margin-left: auto; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
   </style>
 </head>
 <body>
 <div class="app-container">
   <div class="header">
     <div class="logo">LeaveFlow</div>
-    <div>
+    <div class="header-right">
+      <!-- User Profile (hidden initially) -->
+      <div id="userProfile" class="user-profile" style="display: none;">
+        <div class="user-avatar" id="userAvatar">A</div>
+        <div class="user-info">
+          <div class="user-name" id="userName"></div>
+          <div class="user-role" id="userRole"></div>
+        </div>
+      </div>
+
       <button class="refresh-btn" id="refreshBtn"><i class="fas fa-sync-alt"></i></button>
+      
       <span class="notification-badge" id="globalNotificationBadge" style="display:none" onclick="toggleNotificationPanel()">
         <i class="fas fa-bell"></i><span class="badge-count" id="globalNotificationCount">0</span>
       </span>
+
       <span class="login-panel">
         <button id="employeeLoginBtn">Employee</button>
         <button id="adminLoginBtn">Admin</button>
@@ -61,37 +88,38 @@
   </div>
   <div id="roleBadge" style="margin-bottom:1rem;">Not logged in</div>
   
-  <!-- Debug Panel (shows login attempts) -->
-  <div class="debug-panel" id="debugPanel">
-    <strong>Debug Log:</strong> Ready...
-  </div>
+  <!-- Optional Debug Panel (comment out if not needed) -->
+  <!-- <div class="debug-panel" id="debugPanel" style="display:none;">Debug Log: Ready...</div> -->
   
   <div id="statusMessage"></div>
+
+  <!-- Toast container -->
+  <div id="toastContainer"></div>
 
   <!-- Modals -->
   <div id="adminManagerModal" class="modal">
     <div class="modal-content">
-      <span class="close-modal">&times;</span>
+      <span class="close-modal">×</span>
       <h2 id="adminManagerModalTitle">Login</h2>
-      <input type="text" id="adminManagerUsername" placeholder="Username" value="admin">
-      <input type="password" id="adminManagerPassword" placeholder="Password" value="admin123">
+      <input type="text" id="adminManagerUsername" placeholder="Username" value="">
+      <input type="password" id="adminManagerPassword" placeholder="Password" value="">
       <button id="adminManagerLoginBtn">Login</button>
     </div>
   </div>
 
   <div id="employeeModal" class="modal">
     <div class="modal-content">
-      <span class="close-modal">&times;</span>
+      <span class="close-modal">×</span>
       <h2>Employee Login</h2>
-      <input type="text" id="employeeUsername" placeholder="Username" value="john.doe">
-      <input type="password" id="employeePassword" placeholder="Password" value="john123">
+      <input type="text" id="employeeUsername" placeholder="Username" value="">
+      <input type="password" id="employeePassword" placeholder="Password" value="">
       <button id="employeeLoginSubmitBtn">Login</button>
     </div>
   </div>
 
   <div id="editEmployeeModal" class="modal">
     <div class="modal-content">
-      <span class="close-modal">&times;</span>
+      <span class="close-modal">×</span>
       <h2>Edit Employee</h2>
       <input type="hidden" id="editEmployeeId">
       <input type="text" id="editName" placeholder="Name">
@@ -99,16 +127,14 @@
       <input type="text" id="editDept" placeholder="Department">
       <input type="text" id="editUsername" placeholder="Username">
       <h4>Leave Quotas</h4>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem">
         <div>Casual: <input type="number" id="editCasualQuota" value="12"></div>
         <div>Sick: <input type="number" id="editSickQuota" value="10"></div>
-        <div>Annual: <input type="number" id="editAnnualQuota" value="15"></div>
       </div>
       <h4>Leave Used</h4>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem">
         <div>Casual: <input type="number" id="editCasualUsed" value="0"></div>
         <div>Sick: <input type="number" id="editSickUsed" value="0"></div>
-        <div>Annual: <input type="number" id="editAnnualUsed" value="0"></div>
       </div>
       <button id="saveEditBtn">Save</button>
     </div>
@@ -120,16 +146,83 @@
     <div id="employeeColumn" style="display:none;">
       <div class="card"><h3>My Leave Balance</h3><div class="balance-strip" id="balanceContainer">Loading...</div></div>
       <div class="card"><h3>Available Leave Dates</h3><div id="availableLeaveDates" class="leave-dates-grid">Loading...</div></div>
-      <div class="card"><h3>Apply for Leave</h3><select id="leaveTypeSelect"><option>Casual</option><option>Sick</option><option>Annual</option></select><input type="date" id="fromDate"><input type="date" id="toDate"><textarea id="reason" placeholder="Reason"></textarea><button id="submitLeaveBtn">Submit</button></div>
+      <div class="card"><h3>Apply for Leave</h3>
+        <select id="leaveTypeSelect">
+          <option>Casual</option>
+          <option>Sick</option>
+        </select>
+        <input type="date" id="fromDate">
+        <input type="date" id="toDate">
+        <textarea id="reason" placeholder="Reason"></textarea>
+        <button id="submitLeaveBtn">Submit</button>
+      </div>
       <div class="card"><h3>My Notifications <span class="badge" id="notifCount">0</span></h3><div id="notificationList" class="notif-area">Loading...</div></div>
+      
+      <!-- Employee Leave History -->
+      <div class="card"><h3>My Leave History (Approved)</h3><div id="employeeLeaveHistory" class="table-responsive"><table><tbody><tr><td>Loading...</td></tr></tbody></table></div></div>
     </div>
 
     <!-- Admin/Manager Column -->
     <div id="adminManagerColumn" style="display:none; grid-column:span 2;">
-      <div class="card"><h3>Leave Requests <span class="badge pending" id="pendingBadge">0</span></h3><div class="table-responsive"><table id="requestTable"><thead><tr><th>Employee</th><th>Type</th><th>Dates</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead><tbody id="requestTableBody"><tr><td colspan="6">Loading...</td></tr></tbody></table></div></div>
+      <div class="card"><h3>Leave Requests <span class="badge pending" id="pendingBadge">0</span></h3>
+        <div class="table-responsive">
+          <table id="requestTable">
+            <thead><tr><th>Employee</th><th>Type</th><th>Dates</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody id="requestTableBody"><tr><td colspan="6">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- All Leave History for Admin/Manager -->
+      <div class="card"><h3>All Leave History (Approved)</h3><div id="adminLeaveHistory" class="table-responsive"><table><thead><tr><th>Employee</th><th>Type</th><th>Dates</th><th>Reason</th></tr></thead><tbody id="adminLeaveHistoryBody"><tr><td colspan="4">Loading...</td></tr></tbody></table></div></div>
+
+      <!-- NEW: Employee Leave Details (per employee) -->
+      <div class="card" id="employeeDetailsCard">
+        <h3>Employee Leave Details</h3>
+        <div style="margin-bottom:1rem;">
+          <label for="employeeSelect">Select Employee:</label>
+          <select id="employeeSelect" style="width:100%; padding:0.5rem; margin-top:0.5rem; border-radius:40px; border:1px solid #d1d9e6;">
+            <option value="">-- Choose an employee --</option>
+          </select>
+        </div>
+        <div id="selectedEmployeeBalance" style="margin-bottom:1rem; display:flex; gap:1rem;"></div>
+        <div id="selectedEmployeeAvailed">
+          <h4>Availed Leaves</h4>
+          <div class="table-responsive">
+            <table><thead><tr><th>Type</th><th>Dates</th><th>Reason</th></tr></thead><tbody id="selectedEmployeeAvailedBody"></tbody></table>
+          </div>
+        </div>
+      </div>
+
       <div class="card"><h3>System Notifications <span class="badge" id="adminNotifCount">0</span></h3><div id="adminNotificationList" class="notif-area">Loading...</div></div>
-      <div class="card hidden" id="adminMasterCard"><h3>Employee Management</h3><div id="empMasterContainer"></div><button id="showAddEmpFormBtn">+ Add Employee</button><div id="addEmpForm" style="display:none; margin-top:1rem;"><h4>New Employee</h4><input type="text" id="empName" placeholder="Name"><input type="text" id="empDesignation" placeholder="Designation"><input type="text" id="empDept" placeholder="Department"><input type="text" id="empUsername" placeholder="Username"><input type="text" id="empPassword" placeholder="Password"><h5>Leave Quotas</h5><div style="display:grid;grid-template-columns:1fr 1fr 1fr"><input type="number" id="empCasualQuota" placeholder="Casual" value="12"><input type="number" id="empSickQuota" placeholder="Sick" value="10"><input type="number" id="empAnnualQuota" placeholder="Annual" value="15"></div><button id="saveEmpBtn">Save</button></div></div>
-      <div class="card hidden" id="adminLeaveDatesCard"><h3>Manage Available Leave Dates</h3><div style="display:flex;gap:0.5rem"><input type="date" id="newLeaveDate"><button id="addLeaveDateBtn">Add</button></div><div id="leaveDatesList" class="leave-dates-grid">Loading...</div></div>
+      
+      <div class="card hidden" id="adminMasterCard">
+        <h3>Employee Management</h3>
+        <div id="empMasterContainer"></div>
+        <button id="showAddEmpFormBtn">+ Add Employee</button>
+        <div id="addEmpForm" style="display:none; margin-top:1rem;">
+          <h4>New Employee</h4>
+          <input type="text" id="empName" placeholder="Name">
+          <input type="text" id="empDesignation" placeholder="Designation">
+          <input type="text" id="empDept" placeholder="Department">
+          <input type="text" id="empUsername" placeholder="Username">
+          <input type="text" id="empPassword" placeholder="Password">
+          <h5>Leave Quotas</h5>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem">
+            <input type="number" id="empCasualQuota" placeholder="Casual" value="12">
+            <input type="number" id="empSickQuota" placeholder="Sick" value="10">
+          </div>
+          <button id="saveEmpBtn">Save</button>
+        </div>
+      </div>
+      <div class="card hidden" id="adminLeaveDatesCard">
+        <h3>Manage Available Leave Dates</h3>
+        <div style="display:flex;gap:0.5rem">
+          <input type="date" id="newLeaveDate">
+          <button id="addLeaveDateBtn">Add</button>
+        </div>
+        <div id="leaveDatesList" class="leave-dates-grid">Loading...</div>
+      </div>
     </div>
 
     <!-- Welcome -->
@@ -140,21 +233,16 @@
 
 <script>
   // ========== SUPABASE CONFIGURATION ==========
-  // REPLACE THESE WITH YOUR ACTUAL VALUES FROM SUPABASE DASHBOARD
   const SUPABASE_URL = 'https://pzldqhhlxkcrulmeabhf.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6bGRxaGhseGtjcnVsbWVhYmhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODA5OTcsImV4cCI6MjA4ODg1Njk5N30.9GYYHDpdGGB5cVBApK_cSHEPUGe5uqfj4FpjHqPy5JA';
   
-  // Debug function
+  // Optional debug function (comment out if not needed)
   function addDebug(message) {
-    const panel = document.getElementById('debugPanel');
-    panel.innerHTML += '<br>' + new Date().toLocaleTimeString() + ': ' + message;
-    panel.scrollTop = panel.scrollHeight;
-    console.log(message);
+    // console.log(message);
   }
 
   addDebug('Initializing Supabase...');
   
-  // Initialize Supabase client
   const { createClient } = supabase;
   const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   addDebug('Supabase client created');
@@ -166,10 +254,6 @@
     return h; 
   }
 
-  // Test hash function
-  addDebug('Test hash for admin123: ' + hashPassword('admin123'));
-  addDebug('Test hash for john123: ' + hashPassword('john123'));
-
   // Data stores
   let employees = [], leaveRequests = [], notifications = [], adminNotifications = [], availableLeaveDates = [], currentUser = null, currentRole = null;
 
@@ -177,8 +261,23 @@
   const el = id => document.getElementById(id);
   const roleBadge = el('roleBadge'), adminLoginBtn = el('adminLoginBtn'), managerLoginBtn = el('managerLoginBtn'), employeeLoginBtn = el('employeeLoginBtn'), logoutBtn = el('logoutBtn'), refreshBtn = el('refreshBtn'), adminMasterCard = el('adminMasterCard'), adminLeaveDatesCard = el('adminLeaveDatesCard'), balanceContainer = el('balanceContainer'), requestTableBody = el('requestTableBody'), notificationList = el('notificationList'), adminNotificationList = el('adminNotificationList'), notifCountSpan = el('notifCount'), adminNotifCountSpan = el('adminNotifCount'), pendingBadge = el('pendingBadge'), submitLeaveBtn = el('submitLeaveBtn'), leaveTypeSelect = el('leaveTypeSelect'), fromDate = el('fromDate'), toDate = el('toDate'), reason = el('reason'), empMasterContainer = el('empMasterContainer'), showAddEmpFormBtn = el('showAddEmpFormBtn'), addEmpForm = el('addEmpForm'), saveEmpBtn = el('saveEmpBtn'), statusMessage = el('statusMessage'), employeeColumn = el('employeeColumn'), adminManagerColumn = el('adminManagerColumn'), welcomeScreen = el('welcomeScreen'), availableLeaveDatesDiv = el('availableLeaveDates'), leaveDatesList = el('leaveDatesList'), newLeaveDate = el('newLeaveDate'), addLeaveDateBtn = el('addLeaveDateBtn'), globalNotificationBadge = el('globalNotificationBadge'), globalNotificationCount = el('globalNotificationCount');
 
+  // NEW: Employee details elements
+  const employeeSelect = el('employeeSelect');
+  const selectedEmployeeBalance = el('selectedEmployeeBalance');
+  const selectedEmployeeAvailedBody = el('selectedEmployeeAvailedBody');
+
+  // User profile elements
+  const userProfile = el('userProfile');
+  const userAvatar = el('userAvatar');
+  const userName = el('userName');
+  const userRoleSpan = el('userRole');
+
+  // History elements
+  const employeeLeaveHistory = el('employeeLeaveHistory')?.querySelector('tbody') || document.createElement('tbody');
+  const adminLeaveHistoryBody = el('adminLeaveHistoryBody');
+
   // Modal elements
-  const adminManagerModal = el('adminManagerModal'), adminManagerModalTitle = el('adminManagerModalTitle'), adminManagerUsername = el('adminManagerUsername'), adminManagerPassword = el('adminManagerPassword'), adminManagerLoginBtn = el('adminManagerLoginBtn'), employeeModal = el('employeeModal'), employeeUsername = el('employeeUsername'), employeePassword = el('employeePassword'), employeeLoginSubmitBtn = el('employeeLoginSubmitBtn'), editEmployeeModal = el('editEmployeeModal'), editEmployeeId = el('editEmployeeId'), editName = el('editName'), editDesignation = el('editDesignation'), editDept = el('editDept'), editUsername = el('editUsername'), editCasualQuota = el('editCasualQuota'), editSickQuota = el('editSickQuota'), editAnnualQuota = el('editAnnualQuota'), editCasualUsed = el('editCasualUsed'), editSickUsed = el('editSickUsed'), editAnnualUsed = el('editAnnualUsed'), saveEditBtn = el('saveEditBtn');
+  const adminManagerModal = el('adminManagerModal'), adminManagerModalTitle = el('adminManagerModalTitle'), adminManagerUsername = el('adminManagerUsername'), adminManagerPassword = el('adminManagerPassword'), adminManagerLoginBtn = el('adminManagerLoginBtn'), employeeModal = el('employeeModal'), employeeUsername = el('employeeUsername'), employeePassword = el('employeePassword'), employeeLoginSubmitBtn = el('employeeLoginSubmitBtn'), editEmployeeModal = el('editEmployeeModal'), editEmployeeId = el('editEmployeeId'), editName = el('editName'), editDesignation = el('editDesignation'), editDept = el('editDept'), editUsername = el('editUsername'), editCasualQuota = el('editCasualQuota'), editSickQuota = el('editSickQuota'), editCasualUsed = el('editCasualUsed'), editSickUsed = el('editSickUsed'), saveEditBtn = el('saveEditBtn');
 
   let pendingAdminManagerRole = 'admin';
 
@@ -197,17 +296,19 @@
   function openAdminManagerModal(r) { 
     pendingAdminManagerRole = r; 
     adminManagerModalTitle.textContent = r === 'admin' ? 'Admin Login' : 'Manager Login'; 
-    adminManagerUsername.value = r === 'admin' ? 'admin' : 'manager';
-    adminManagerPassword.value = r === 'admin' ? 'admin123' : 'manager123';
-    adminManagerModal.style.display = 'block'; 
+    adminManagerUsername.value = '';
+    adminManagerPassword.value = '';
+    adminManagerModal.style.display = 'flex';   // ✅ changed from 'block' to 'flex'
   }
   
   function closeAdminManagerModal() { adminManagerModal.style.display = 'none'; }
+  
   function openEmployeeModal() { 
-    employeeUsername.value = 'john.doe'; 
-    employeePassword.value = 'john123'; 
-    employeeModal.style.display = 'block'; 
+    employeeUsername.value = ''; 
+    employeePassword.value = ''; 
+    employeeModal.style.display = 'flex';       // ✅ changed from 'block' to 'flex'
   }
+  
   window.closeEmployeeModal = () => employeeModal.style.display = 'none';
   window.closeEditModal = () => editEmployeeModal.style.display = 'none';
   
@@ -221,13 +322,52 @@
     if (e.target === editEmployeeModal) closeEditModal(); 
   };
 
-  // ========== LOGIN FUNCTION WITH DEBUGGING ==========
+  // ========== TOAST NOTIFICATION FUNCTION ==========
+  function showToast(message, type = 'info', duration = 4000) {
+    const toastContainer = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `
+      <span>${message}</span>
+      <button onclick="this.parentElement.remove()">✕</button>
+    `;
+    toastContainer.appendChild(toast);
+    setTimeout(() => {
+      if (toast.parentNode) toast.remove();
+    }, duration);
+  }
+
+  // ========== UPDATE USER PROFILE DISPLAY ==========
+  function updateUserProfile() {
+    if (!currentUser) {
+      userProfile.style.display = 'none';
+      return;
+    }
+    userProfile.style.display = 'flex';
+    userName.textContent = currentUser.name;
+    
+    let roleText = '';
+    if (currentRole === 'employee') {
+      roleText = currentUser.designation || 'Employee';
+    } else if (currentRole === 'admin') {
+      roleText = 'Administrator';
+    } else if (currentRole === 'manager') {
+      roleText = 'Manager';
+    }
+    userRoleSpan.textContent = roleText;
+    
+    // Set avatar initial
+    userAvatar.textContent = currentUser.name.charAt(0).toUpperCase();
+  }
+
+  // ========== LOGIN FUNCTIONS ==========
   async function adminManagerLogin(username, password, role) {
     addDebug(`Login attempt: username=${username}, role=${role}`);
     
     if (!username || !password) {
       addDebug('ERROR: Empty credentials');
-      return showMessage('error', 'Enter credentials');
+      showToast('Please enter credentials', 'error');
+      return;
     }
     
     const hash = hashPassword(password).toString();
@@ -247,19 +387,25 @@
       
       if (data && data.length > 0) {
         addDebug(`Login successful for ${data[0].name}`);
-        currentUser = data[0];
+        currentUser = { 
+          id: data[0].id, 
+          name: data[0].name, 
+          role: data[0].role,
+          // no designation for admin/manager
+        };
         currentRole = data[0].role;
         updateUIAfterLogin();
+        updateUserProfile();
         closeAdminManagerModal();
-        showMessage('success', `Welcome ${data[0].name}`);
+        showToast(`Welcome ${data[0].name}!`, 'success');
         loadAllData();
       } else {
         addDebug('No matching user found');
-        showMessage('error', 'Invalid credentials');
+        showToast('Invalid credentials', 'error');
       }
     } catch (e) {
       addDebug(`Exception: ${e.message}`);
-      showMessage('error', 'Login failed');
+      showToast('Login failed', 'error');
     }
   }
   
@@ -268,7 +414,8 @@
     
     if (!username || !password) {
       addDebug('ERROR: Empty credentials');
-      return showMessage('error', 'Enter credentials');
+      showToast('Please enter credentials', 'error');
+      return;
     }
     
     const hash = hashPassword(password).toString();
@@ -290,21 +437,23 @@
         currentUser = { 
           id: data[0].id, 
           name: data[0].name, 
+          designation: data[0].designation,
           role: 'employee', 
           employeeId: data[0].id 
         };
         currentRole = 'employee';
         updateUIAfterLogin();
+        updateUserProfile();
         closeEmployeeModal();
-        showMessage('success', `Welcome ${data[0].name}`);
+        showToast(`Welcome ${data[0].name}!`, 'success');
         loadAllData();
       } else {
         addDebug('No matching employee found');
-        showMessage('error', 'Invalid credentials');
+        showToast('Invalid credentials', 'error');
       }
     } catch (e) {
       addDebug(`Exception: ${e.message}`);
-      showMessage('error', 'Login failed');
+      showToast('Login failed', 'error');
     }
   }
   
@@ -343,8 +492,10 @@
     adminManagerColumn.style.display = 'none'; 
     welcomeScreen.style.display = 'block'; 
     globalNotificationBadge.style.display = 'none';
+    userProfile.style.display = 'none';
     roleBadge.innerHTML = 'Not logged in';
     addDebug('Logged out');
+    showToast('Logged out', 'info');
   }
 
   // ========== DATA LOADING FUNCTIONS ==========
@@ -382,6 +533,7 @@
         if (reqData) {
           leaveRequests = reqData;
           renderEmployeeRequests();
+          renderEmployeeLeaveHistory();
         }
         
         // Load notifications
@@ -412,6 +564,9 @@
         if (reqData) {
           leaveRequests = reqData;
           renderRequestTable();
+          renderAdminLeaveHistory();
+          // NEW: populate employee dropdown
+          populateEmployeeDropdown();
         }
         
         // Load admin/manager notifications
@@ -433,13 +588,66 @@
       
     } catch (e) { 
       console.error('Error loading data:', e);
-      showMessage('error', 'Failed to load data'); 
+      showToast('Failed to load data', 'error');
     }
+  }
+
+  // NEW: Populate employee dropdown for admin/manager
+  function populateEmployeeDropdown() {
+    if (!employeeSelect) return;
+    employeeSelect.innerHTML = '<option value="">-- Choose an employee --</option>';
+    employees.forEach(emp => {
+      const option = document.createElement('option');
+      option.value = emp.id;
+      option.textContent = `${emp.name} (${emp.designation})`;
+      employeeSelect.appendChild(option);
+    });
+  }
+
+  // NEW: Display selected employee details
+  function displayEmployeeDetails(employeeId) {
+    if (!employeeId) {
+      selectedEmployeeBalance.innerHTML = '';
+      selectedEmployeeAvailedBody.innerHTML = '';
+      return;
+    }
+    const emp = employees.find(e => e.id === employeeId);
+    if (!emp) return;
+
+    // Show balance
+    selectedEmployeeBalance.innerHTML = `
+      <div class="balance-item">Casual: ${emp.casual_used} / ${emp.casual_quota}</div>
+      <div class="balance-item">Sick: ${emp.sick_used} / ${emp.sick_quota}</div>
+    `;
+
+    // Show availed leaves (approved)
+    const availed = leaveRequests.filter(r => r.employee_id === employeeId && r.status === 'approved');
+    if (availed.length === 0) {
+      selectedEmployeeAvailedBody.innerHTML = '<tr><td colspan="3">No approved leaves yet.</td></tr>';
+    } else {
+      selectedEmployeeAvailedBody.innerHTML = availed.map(r => `
+        <tr>
+          <td>${r.type}</td>
+          <td>${r.from_date} → ${r.to_date}</td>
+          <td>${r.reason || '-'}</td>
+        </tr>
+      `).join('');
+    }
+  }
+
+  // Add event listener for employee dropdown
+  if (employeeSelect) {
+    employeeSelect.addEventListener('change', (e) => {
+      displayEmployeeDetails(e.target.value);
+    });
   }
 
   // Render functions
   function renderBalance(d) { 
-    balanceContainer.innerHTML = `<div class="balance-item">Casual: ${d.casual_quota - d.casual_used} / ${d.casual_quota}</div><div class="balance-item">Sick: ${d.sick_quota - d.sick_used} / ${d.sick_quota}</div><div class="balance-item">Annual: ${d.annual_quota - d.annual_used} / ${d.annual_quota}</div>`; 
+    balanceContainer.innerHTML = `
+      <div class="balance-item">Casual: ${d.casual_quota - d.casual_used} / ${d.casual_quota}</div>
+      <div class="balance-item">Sick: ${d.sick_quota - d.sick_used} / ${d.sick_quota}</div>
+    `;
   }
   
   function renderAvailableLeaveDates() { 
@@ -470,6 +678,7 @@
         .single();
       
       if (reqData) {
+        // Create notification for employee
         await supabaseClient
           .from('notifications')
           .insert([{
@@ -481,6 +690,8 @@
             type: status === 'approved' ? 'success' : 'error'
           }]);
         
+        showToast(`Request ${status}`, 'success');
+        
         if (status === 'approved') {
           const { data: empData } = await supabaseClient
             .from('employees')
@@ -489,8 +700,7 @@
             .single();
           
           if (empData) {
-            const updateField = reqData.type === 'Casual' ? 'casual_used' : 
-                               reqData.type === 'Sick' ? 'sick_used' : 'annual_used';
+            const updateField = reqData.type === 'Casual' ? 'casual_used' : 'sick_used';
             
             await supabaseClient
               .from('employees')
@@ -500,18 +710,60 @@
         }
       }
       
-      showMessage('success', `Request ${status}`);
       loadAllData();
     }
   };
   
   function renderNotifications(container, count, list) { 
-    container.innerHTML = list.map(n => `<div class="notif-item">${n.message}</div>`).join(''); 
+    container.innerHTML = list.map(n => `
+      <div class="notif-item ${!n.read ? 'unread' : ''}" data-id="${n.id}" onclick="markNotificationRead('${n.id}')">
+        ${n.message}
+      </div>
+    `).join(''); 
     if (count) count.innerText = list.filter(n => !n.read).length; 
   }
   
+  window.markNotificationRead = async (id) => {
+    await supabaseClient
+      .from('notifications')
+      .update({ read: true })
+      .eq('id', id);
+    loadAllData();
+  };
+  
+  function renderEmployeeLeaveHistory() {
+    const approved = leaveRequests.filter(r => r.status === 'approved');
+    if (approved.length === 0) {
+      employeeLeaveHistory.innerHTML = '<tr><td colspan="3">No approved leaves yet.</td></tr>';
+      return;
+    }
+    employeeLeaveHistory.innerHTML = approved.map(r => `
+      <tr>
+        <td>${r.type}</td>
+        <td>${r.from_date} → ${r.to_date}</td>
+        <td>${r.reason || '-'}</td>
+      </tr>
+    `).join('');
+  }
+  
+  function renderAdminLeaveHistory() {
+    const approved = leaveRequests.filter(r => r.status === 'approved');
+    if (approved.length === 0) {
+      adminLeaveHistoryBody.innerHTML = '<tr><td colspan="4">No approved leaves yet.</td></tr>';
+      return;
+    }
+    adminLeaveHistoryBody.innerHTML = approved.map(r => `
+      <tr>
+        <td>${r.employee_name}</td>
+        <td>${r.type}</td>
+        <td>${r.from_date} → ${r.to_date}</td>
+        <td>${r.reason || '-'}</td>
+      </tr>
+    `).join('');
+  }
+  
   function renderEmployeeMaster() { 
-    empMasterContainer.innerHTML = employees.map(e => `<div class="emp-row"><div><strong>${e.name}</strong> ${e.designation} (${e.dept})<br>Username: ${e.username}<br>Leaves: C:${e.casual_used}/${e.casual_quota} S:${e.sick_used}/${e.sick_quota} A:${e.annual_used}/${e.annual_quota}</div><div><button class="action-btn" onclick="openEditModal('${e.id}')">✎</button><button class="action-btn" onclick="deleteEmp('${e.id}')">🗑</button></div></div>`).join(''); 
+    empMasterContainer.innerHTML = employees.map(e => `<div class="emp-row"><div><strong>${e.name}</strong> ${e.designation} (${e.dept})<br>Username: ${e.username}<br>Leaves: C:${e.casual_used}/${e.casual_quota} S:${e.sick_used}/${e.sick_quota}</div><div><button class="action-btn" onclick="openEditModal('${e.id}')">✎</button><button class="action-btn" onclick="deleteEmp('${e.id}')">🗑</button></div></div>`).join(''); 
   }
   
   window.openEditModal = id => { 
@@ -524,17 +776,16 @@
       editUsername.value = e.username; 
       editCasualQuota.value = e.casual_quota; 
       editSickQuota.value = e.sick_quota; 
-      editAnnualQuota.value = e.annual_quota; 
       editCasualUsed.value = e.casual_used; 
       editSickUsed.value = e.sick_used; 
-      editAnnualUsed.value = e.annual_used; 
-      editEmployeeModal.style.display = 'block'; 
+      editEmployeeModal.style.display = 'flex';    // ✅ changed from 'block' to 'flex'
     } 
   };
   
   window.deleteEmp = async id => { 
-    if (confirm('Delete?')) { 
+    if (confirm('Delete employee?')) { 
       await supabaseClient.from('employees').delete().eq('id', id);
+      showToast('Employee deleted', 'success');
       loadAllData(); 
     } 
   };
@@ -545,18 +796,22 @@
   
   window.deleteLeaveDate = async id => { 
     await supabaseClient.from('available_leave_dates').delete().eq('id', id);
+    showToast('Date removed', 'success');
     loadAllData(); 
   };
   
   function updateGlobalNotificationBadge() { 
-    let c = (currentRole === 'employee' ? notifications : adminNotifications) || []; 
-    let u = c.filter(n => !n.read).length; 
-    if (u) { 
-      globalNotificationBadge.style.display = 'inline-block'; 
-      globalNotificationCount.innerText = u; 
-    } else { 
-      globalNotificationBadge.style.display = 'none'; 
-    } 
+    let notifs = (currentRole === 'employee' ? notifications : adminNotifications) || [];
+    let unreadCount = notifs.filter(n => !n.read).length;
+
+    globalNotificationBadge.style.display = 'inline-block';
+
+    if (unreadCount > 0) {
+      globalNotificationCount.innerText = unreadCount;
+      globalNotificationCount.style.display = 'inline-block';
+    } else {
+      globalNotificationCount.style.display = 'none';
+    }
   }
   
   function showMessage(t, m) { 
@@ -571,10 +826,13 @@
   adminManagerLoginBtn.onclick = () => adminManagerLogin(adminManagerUsername.value, adminManagerPassword.value, pendingAdminManagerRole);
   employeeLoginSubmitBtn.onclick = () => employeeLogin(employeeUsername.value, employeePassword.value);
   logoutBtn.onclick = logout;
-  refreshBtn.onclick = () => { loadAllData(); showMessage('success', 'Refreshed'); };
+  refreshBtn.onclick = () => { loadAllData(); showToast('Data refreshed', 'info'); };
   
   submitLeaveBtn.onclick = async () => { 
-    if (!currentUser || currentRole !== 'employee') return showMessage('error', 'Login as employee'); 
+    if (!currentUser || currentRole !== 'employee') {
+      showToast('Please login as employee', 'error');
+      return;
+    }
     
     const newRequest = {
       id: 'req_' + Date.now(),
@@ -596,7 +854,7 @@
         { id: 'notif_' + ts + '_2', user_id: 'manager', message: `New leave request from ${currentUser.name}`, timestamp: ts, read: false, type: 'info' }
       ]);
       
-      showMessage('success', 'Submitted'); 
+      showToast('Leave request submitted', 'success');
       reason.value = ''; 
       loadAllData(); 
     }
@@ -614,16 +872,14 @@
       password_hash: hashPassword(el('empPassword').value).toString(),
       casual_quota: parseInt(el('empCasualQuota').value) || 12,
       sick_quota: parseInt(el('empSickQuota').value) || 10,
-      annual_quota: parseInt(el('empAnnualQuota').value) || 15,
       casual_used: 0,
       sick_used: 0,
-      annual_used: 0
     };
     
     const { error } = await supabaseClient.from('employees').insert([newEmployee]);
     
     if (!error) { 
-      showMessage('success', 'Added'); 
+      showToast('Employee added', 'success');
       el('addEmpForm').style.display = 'none'; 
       loadAllData(); 
     }
@@ -637,10 +893,8 @@
       username: editUsername.value,
       casual_quota: parseInt(editCasualQuota.value),
       sick_quota: parseInt(editSickQuota.value),
-      annual_quota: parseInt(editAnnualQuota.value),
       casual_used: parseInt(editCasualUsed.value),
       sick_used: parseInt(editSickUsed.value),
-      annual_used: parseInt(editAnnualUsed.value)
     };
     
     const { error } = await supabaseClient
@@ -649,7 +903,7 @@
       .eq('id', editEmployeeId.value);
     
     if (!error) { 
-      showMessage('success', 'Updated'); 
+      showToast('Employee updated', 'success');
       closeEditModal(); 
       loadAllData(); 
     }
@@ -663,7 +917,7 @@
     };
     
     await supabaseClient.from('available_leave_dates').insert([newDate]);
-    showMessage('success', 'Date added'); 
+    showToast('Date added', 'success');
     loadAllData(); 
   };
   
