@@ -56,6 +56,9 @@
     .toast.info { border-left: 5px solid #3b82f6; }
     .toast button { background: none; border: none; color: #64748b; cursor: pointer; margin-left: auto; }
     @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* New rule for collapsible card content */
+    .card-content.hidden { display: none; }
   </style>
 </head>
 <body>
@@ -162,21 +165,42 @@
       <div class="card"><h3>My Leave History (Approved)</h3><div id="employeeLeaveHistory" class="table-responsive"><table><tbody><tr><td>Loading...</td></tr></tbody></table></div></div>
     </div>
 
-    <!-- Admin/Manager Column -->
+    <!-- Admin/Manager Column (cards collapsed by default) -->
     <div id="adminManagerColumn" style="display:none; grid-column:span 2;">
-      <div class="card"><h3>Leave Requests <span class="badge pending" id="pendingBadge">0</span></h3>
-        <div class="table-responsive">
-          <table id="requestTable">
-            <thead><tr><th>Employee</th><th>Type</th><th>Dates</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead>
-            <tbody id="requestTableBody"><tr><td colspan="6">Loading...</td></tr></tbody>
-          </table>
+      <!-- Leave Requests Card (collapsed by default) -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <h3 style="margin:0;">Leave Requests <span class="badge pending" id="pendingBadge">0</span></h3>
+          <button class="toggle-card-btn" style="background:none; border:none; font-size:1.2rem; cursor:pointer;" onclick="toggleCardContent(this)">
+            <i class="fas fa-chevron-down"></i>
+          </button>
+        </div>
+        <div class="card-content hidden">
+          <div class="table-responsive">
+            <table id="requestTable">
+              <thead><tr><th>Employee</th><th>Type</th><th>Dates</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody id="requestTableBody"><tr><td colspan="6">Loading...</td></tr></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      <!-- All Leave History for Admin/Manager -->
-      <div class="card"><h3>All Leave History (Approved)</h3><div id="adminLeaveHistory" class="table-responsive"><table><thead><tr><th>Employee</th><th>Type</th><th>Dates</th><th>Reason</th></tr></thead><tbody id="adminLeaveHistoryBody"><tr><td colspan="4">Loading...</td></tr></tbody></table></div></div>
+      <!-- All Leave History for Admin/Manager (collapsed by default) -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <h3 style="margin:0;">All Leave History (Approved)</h3>
+          <button class="toggle-card-btn" style="background:none; border:none; font-size:1.2rem; cursor:pointer;" onclick="toggleCardContent(this)">
+            <i class="fas fa-chevron-down"></i>
+          </button>
+        </div>
+        <div class="card-content hidden">
+          <div class="table-responsive">
+            <table><thead><tr><th>Employee</th><th>Type</th><th>Dates</th><th>Reason</th></tr></thead><tbody id="adminLeaveHistoryBody"><tr><td colspan="4">Loading...</td></tr></tbody></table>
+          </div>
+        </div>
+      </div>
 
-      <!-- NEW: Employee Leave Details (per employee) -->
+      <!-- Employee Leave Details (no toggle) -->
       <div class="card" id="employeeDetailsCard">
         <h3>Employee Leave Details</h3>
         <div style="margin-bottom:1rem;">
@@ -194,27 +218,48 @@
         </div>
       </div>
 
-      <div class="card"><h3>System Notifications <span class="badge" id="adminNotifCount">0</span></h3><div id="adminNotificationList" class="notif-area">Loading...</div></div>
-      
-      <div class="card hidden" id="adminMasterCard">
-        <h3>Employee Management</h3>
-        <div id="empMasterContainer"></div>
-        <button id="showAddEmpFormBtn">+ Add Employee</button>
-        <div id="addEmpForm" style="display:none; margin-top:1rem;">
-          <h4>New Employee</h4>
-          <input type="text" id="empName" placeholder="Name">
-          <input type="text" id="empDesignation" placeholder="Designation">
-          <input type="text" id="empDept" placeholder="Department">
-          <input type="text" id="empUsername" placeholder="Username">
-          <input type="text" id="empPassword" placeholder="Password">
-          <h5>Leave Quotas</h5>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem">
-            <input type="number" id="empCasualQuota" placeholder="Casual" value="12">
-            <input type="number" id="empSickQuota" placeholder="Sick" value="10">
-          </div>
-          <button id="saveEmpBtn">Save</button>
+      <!-- System Notifications Card (collapsed by default) -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <h3 style="margin:0;">System Notifications <span class="badge" id="adminNotifCount">0</span></h3>
+          <button class="toggle-card-btn" style="background:none; border:none; font-size:1.2rem; cursor:pointer;" onclick="toggleCardContent(this)">
+            <i class="fas fa-chevron-down"></i>
+          </button>
+        </div>
+        <div class="card-content hidden">
+          <div id="adminNotificationList" class="notif-area">Loading...</div>
         </div>
       </div>
+
+      <!-- Employee Management Card (collapsed by default, still hidden until admin logs in) -->
+      <div class="card hidden" id="adminMasterCard">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <h3 style="margin:0;">Employee Management</h3>
+          <button class="toggle-card-btn" style="background:none; border:none; font-size:1.2rem; cursor:pointer;" onclick="toggleCardContent(this)">
+            <i class="fas fa-chevron-down"></i>
+          </button>
+        </div>
+        <div class="card-content hidden">
+          <div id="empMasterContainer"></div>
+          <button id="showAddEmpFormBtn">+ Add Employee</button>
+          <div id="addEmpForm" style="display:none; margin-top:1rem;">
+            <h4>New Employee</h4>
+            <input type="text" id="empName" placeholder="Name">
+            <input type="text" id="empDesignation" placeholder="Designation">
+            <input type="text" id="empDept" placeholder="Department">
+            <input type="text" id="empUsername" placeholder="Username">
+            <input type="text" id="empPassword" placeholder="Password">
+            <h5>Leave Quotas</h5>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem">
+              <input type="number" id="empCasualQuota" placeholder="Casual" value="12">
+              <input type="number" id="empSickQuota" placeholder="Sick" value="10">
+            </div>
+            <button id="saveEmpBtn">Save</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manage Available Leave Dates (no toggle) -->
       <div class="card hidden" id="adminLeaveDatesCard">
         <h3>Manage Available Leave Dates</h3>
         <div style="display:flex;gap:0.5rem">
@@ -818,6 +863,21 @@
     statusMessage.innerHTML = `<div class="${t}-message">${m}</div>`; 
     setTimeout(() => statusMessage.innerHTML = '', 3000); 
   }
+
+  // ========== TOGGLE CARD CONTENT FUNCTION ==========
+  window.toggleCardContent = function(button) {
+    const card = button.closest('.card');
+    const content = card.querySelector('.card-content');
+    const icon = button.querySelector('i');
+    if (content) {
+      content.classList.toggle('hidden');
+      if (content.classList.contains('hidden')) {
+        icon.className = 'fas fa-chevron-down';
+      } else {
+        icon.className = 'fas fa-chevron-up';
+      }
+    }
+  };
 
   // Event listeners
   adminLoginBtn.onclick = () => openAdminManagerModal('admin');
