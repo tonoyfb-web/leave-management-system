@@ -124,11 +124,20 @@
     <div class="modal-content">
       <span class="close-modal">×</span>
       <h2>Edit Employee</h2>
-      <input type="hidden" id="editEmployeeId">
       <input type="text" id="editName" placeholder="Name">
       <input type="text" id="editDesignation" placeholder="Designation">
       <input type="text" id="editDept" placeholder="Department">
+
+      <!-- NEW USER ID FIELD -->
+      <input type="text" id="editUserId" placeholder="User ID">
+
       <input type="text" id="editUsername" placeholder="Username">
+
+      <!-- NEW USER ID FIELD -->
+      <input type="text" id="empUserId" placeholder="User ID">
+
+      <input type="text" id="empUsername" placeholder="Username">
+      <input type="text" id="empPassword" placeholder="Password">
       <h4>Leave Quotas</h4>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem">
         <div>Casual: <input type="number" id="editCasualQuota" value="12"></div>
@@ -322,7 +331,18 @@
   const adminLeaveHistoryBody = el('adminLeaveHistoryBody');
 
   // Modal elements
-  const adminManagerModal = el('adminManagerModal'), adminManagerModalTitle = el('adminManagerModalTitle'), adminManagerUsername = el('adminManagerUsername'), adminManagerPassword = el('adminManagerPassword'), adminManagerLoginBtn = el('adminManagerLoginBtn'), employeeModal = el('employeeModal'), employeeUsername = el('employeeUsername'), employeePassword = el('employeePassword'), employeeLoginSubmitBtn = el('employeeLoginSubmitBtn'), editEmployeeModal = el('editEmployeeModal'), editEmployeeId = el('editEmployeeId'), editName = el('editName'), editDesignation = el('editDesignation'), editDept = el('editDept'), editUsername = el('editUsername'), editCasualQuota = el('editCasualQuota'), editSickQuota = el('editSickQuota'), editCasualUsed = el('editCasualUsed'), editSickUsed = el('editSickUsed'), saveEditBtn = el('saveEditBtn');
+  const editEmployeeModal = el('editEmployeeModal'),
+      editEmployeeId = el('editEmployeeId'),
+      editName = el('editName'),
+      editDesignation = el('editDesignation'),
+      editDept = el('editDept'),
+      editUserId = el('editUserId'),   // NEW
+      editUsername = el('editUsername'),
+      editCasualQuota = el('editCasualQuota'),
+      editSickQuota = el('editSickQuota'),
+      editCasualUsed = el('editCasualUsed'),
+      editSickUsed = el('editSickUsed'),
+      saveEditBtn = el('saveEditBtn');
 
   let pendingAdminManagerRole = 'admin';
 
@@ -808,7 +828,9 @@
   }
   
   function renderEmployeeMaster() { 
-    empMasterContainer.innerHTML = employees.map(e => `<div class="emp-row"><div><strong>${e.name}</strong> ${e.designation} (${e.dept})<br>Username: ${e.username}<br>Leaves: C:${e.casual_used}/${e.casual_quota} S:${e.sick_used}/${e.sick_quota}</div><div><button class="action-btn" onclick="openEditModal('${e.id}')">✎</button><button class="action-btn" onclick="deleteEmp('${e.id}')">🗑</button></div></div>`).join(''); 
+    empMasterContainer.innerHTML = employees.map(e => `<div class="emp-row"><div><strong>${e.name}</strong> ${e.designation} (${e.dept})
+<br>User ID: ${e.user_id || '-'}
+<br>Username: ${e.username}<br>Leaves: C:${e.casual_used}/${e.casual_quota} S:${e.sick_used}/${e.sick_quota}</div><div><button class="action-btn" onclick="openEditModal('${e.id}')">✎</button><button class="action-btn" onclick="deleteEmp('${e.id}')">🗑</button></div></div>`).join(''); 
   }
   
   window.openEditModal = id => { 
@@ -923,18 +945,23 @@
   saveEmpBtn.onclick = async () => { 
     if (currentRole !== 'admin') return; 
     
-    const newEmployee = {
-      id: 'emp_' + Date.now(),
-      name: el('empName').value,
-      designation: el('empDesignation').value,
-      dept: el('empDept').value,
-      username: el('empUsername').value,
-      password_hash: hashPassword(el('empPassword').value).toString(),
-      casual_quota: parseInt(el('empCasualQuota').value) || 12,
-      sick_quota: parseInt(el('empSickQuota').value) || 10,
-      casual_used: 0,
-      sick_used: 0,
-    };
+  const newEmployee = {
+  id: 'emp_' + Date.now(),
+  name: el('empName').value,
+  designation: el('empDesignation').value,
+  dept: el('empDept').value,
+
+  // NEW USER ID
+  user_id: el('empUserId').value,
+
+  username: el('empUsername').value,
+  password_hash: hashPassword(el('empPassword').value).toString(),
+
+  casual_quota: parseInt(el('empCasualQuota').value) || 12,
+  sick_quota: parseInt(el('empSickQuota').value) || 10,
+  casual_used: 0,
+  sick_used: 0,
+  };
     
     const { error } = await supabaseClient.from('employees').insert([newEmployee]);
     
@@ -946,16 +973,20 @@
   };
   
   saveEditBtn.onclick = async () => { 
-    const updates = {
-      name: editName.value,
-      designation: editDesignation.value,
-      dept: editDept.value,
-      username: editUsername.value,
-      casual_quota: parseInt(editCasualQuota.value),
-      sick_quota: parseInt(editSickQuota.value),
-      casual_used: parseInt(editCasualUsed.value),
-      sick_used: parseInt(editSickUsed.value),
-    };
+  const updates = {
+  name: editName.value,
+  designation: editDesignation.value,
+  dept: editDept.value,
+
+  // NEW USER ID
+  user_id: editUserId.value,
+
+  username: editUsername.value,
+  casual_quota: parseInt(editCasualQuota.value),
+  sick_quota: parseInt(editSickQuota.value),
+  casual_used: parseInt(editCasualUsed.value),
+  sick_used: parseInt(editSickUsed.value),
+  };
     
     const { error } = await supabaseClient
       .from('employees')
