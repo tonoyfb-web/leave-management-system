@@ -986,6 +986,77 @@
   // Start
   welcomeScreen.style.display = 'block';
   addDebug('Ready. Waiting for login...');
+
+// =========================
+// DESKTOP WINDOWS NOTIFICATION
+// =========================
+
+// Ask permission automatically when page loads
+window.addEventListener('load', async () => {
+  if ('Notification' in window && Notification.permission === 'default') {
+    try {
+      await Notification.requestPermission();
+    } catch (e) {
+      console.log('Notification permission error', e);
+    }
+  }
+});
+
+// Function to show desktop notification
+function desktopNotify(title, message) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, {
+      body: message,
+      icon: 'https://cdn-icons-png.flaticon.com/512/1827/1827392.png'
+    });
+  }
+}
+
+// Notify when employee submits leave
+submitLeaveBtn.addEventListener('click', () => {
+  if (currentUser && currentRole === 'employee') {
+    setTimeout(() => {
+      desktopNotify('LeaveFlow', currentUser.name + ' submitted a leave request');
+    }, 500);
+  }
+});
+
+// Notify when admin/manager logs in
+adminManagerLoginBtn.addEventListener('click', () => {
+  setTimeout(() => {
+    if (currentUser) {
+      desktopNotify('LeaveFlow Login', 'Logged in as ' + currentRole);
+    }
+  }, 500);
+});
+
+// Notify when employee logs in
+employeeLoginSubmitBtn.addEventListener('click', () => {
+  setTimeout(() => {
+    if (currentUser) {
+      desktopNotify('LeaveFlow Login', 'Welcome ' + currentUser.name);
+    }
+  }, 500);
+});
+
+// Notify when employee is added
+saveEmpBtn.addEventListener('click', () => {
+  setTimeout(() => {
+    desktopNotify('LeaveFlow', 'New employee added');
+  }, 500);
+});
+
+// Notify when leave date is added
+addLeaveDateBtn.addEventListener('click', () => {
+  setTimeout(() => {
+    desktopNotify('LeaveFlow', 'New available leave date added');
+  }, 500);
+});
+
+// Notify when data is refreshed
+refreshBtn.addEventListener('click', () => {
+  desktopNotify('LeaveFlow', 'Data refreshed successfully');
+});
 </script>
 </body>
 </html>
