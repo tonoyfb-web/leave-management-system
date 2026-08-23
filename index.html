@@ -1079,15 +1079,65 @@ window.testDesktopNotification = async function() {
   const ok = await requestDesktopNotificationPermission();
   if (ok) desktopNotify('LeaveFlow Test', 'Desktop notifications are working correctly.');
 };
+
+// =====================================================
+// AUTO-REFRESH DATA EVERY 10 SECONDS (NO PAGE RELOAD)
+// =====================================================
+// Refresh only the Supabase-backed LeaveFlow data.
+// The page, login session, open modals, and form fields are NOT reloaded.
+let leaveFlowAutoRefreshTimer = null;
+
+function startLeaveFlowAutoRefresh() {
+  if (leaveFlowAutoRefreshTimer) {
+    clearInterval(leaveFlowAutoRefreshTimer);
+  }
+
+  leaveFlowAutoRefreshTimer = setInterval(async () => {
+    if (!currentUser || !currentRole) return;
+
+    try {
+      await loadAllData();
+      console.log('LeaveFlow data refreshed automatically at', new Date().toLocaleTimeString());
+    } catch (error) {
+      console.error('Automatic LeaveFlow data refresh failed:', error);
+    }
+  }, 10000);
+}
+
+function stopLeaveFlowAutoRefresh() {
+  if (leaveFlowAutoRefreshTimer) {
+    clearInterval(leaveFlowAutoRefreshTimer);
+    leaveFlowAutoRefreshTimer = null;
+  }
+}
+
+// Start the 10-second data refresh after successful login.
+function waitForLoginAndStartDataRefresh() {
+  let attempts = 0;
+  const timer = setInterval(() => {
+    attempts++;
+
+    if (currentUser && currentRole) {
+      clearInterval(timer);
+      startLeaveFlowAutoRefresh();
+    } else if (attempts >= 40) {
+      clearInterval(timer);
+    }
+  }, 100);
+}
+
+adminManagerLoginBtn.addEventListener('click', waitForLoginAndStartDataRefresh);
+employeeLoginSubmitBtn.addEventListener('click', waitForLoginAndStartDataRefresh);
+
+// Stop the timer on logout.
+const originalLogoutForAutoRefresh = logout;
+logout = function() {
+  stopLeaveFlowAutoRefresh();
+  originalLogoutForAutoRefresh();
+};
 </script>
 
 </div><script src="/webcard/static/app.bundle.1786366755.js"></script><script src="/js/custom.260602084104.js">
 
-// =============================================
-// AUTO REFRESH PAGE EVERY 10 SECONDS
-// =============================================
-setInterval(function () {
-  window.location.reload();
-}, 10000);
 </script></body>
 </html>
