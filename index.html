@@ -62,6 +62,28 @@ body {
   gap:1rem;
 }
 
+/* White LeaveFlow branding */
+.header {
+  background:#0f172a;
+  padding:1rem 1.25rem;
+  border-radius:24px;
+}
+
+.logo {
+  color:#ffffff !important;
+}
+
+.dashboard-title-card {
+  background:linear-gradient(135deg,#0f172a,#1e293b) !important;
+  color:#ffffff !important;
+}
+
+.dashboard-title-card h2,
+.dashboard-title-card p,
+.dashboard-title-card .dashboard-date {
+  color:#ffffff !important;
+}
+
 .logo {
   font-size:2rem;
   font-weight:700;
@@ -1529,31 +1551,6 @@ td {
 </div>
 
 
-<!-- MANAGE AVAILABLE LEAVE DATES -->
-
-<div class="card hidden" id="adminLeaveDatesCard">
-
-  <h3>
-    Manage Available Leave Dates
-  </h3>
-
-  <div style="display:flex;gap:.5rem">
-
-    <input type="date" id="newLeaveDate">
-
-    <button id="addLeaveDateBtn">
-      Add
-    </button>
-
-  </div>
-
-  <div id="leaveDatesList" class="leave-dates-grid">
-    Loading...
-  </div>
-
-</div>
-
-
 </div>
 <!-- END ADMIN MANAGER -->
 
@@ -1761,8 +1758,6 @@ el('refreshBtn');
 const adminMasterCard =
 el('adminMasterCard');
 
-const adminLeaveDatesCard =
-el('adminLeaveDatesCard');
 
 const balanceContainer =
 el('balanceContainer');
@@ -1830,14 +1825,8 @@ el('welcomeScreen');
 const availableLeaveDatesDiv =
 el('availableLeaveDates');
 
-const leaveDatesList =
-el('leaveDatesList');
 
-const newLeaveDate =
-el('newLeaveDate');
 
-const addLeaveDateBtn =
-el('addLeaveDateBtn');
 
 const globalNotificationBadge =
 el('globalNotificationBadge');
@@ -2020,8 +2009,6 @@ tomorrow.getDate() + 1
 toDate.value =
 tomorrow.toISOString().split('T')[0];
 
-newLeaveDate.value =
-new Date().toISOString().split('T')[0];
 
 
 /* =====================================================
@@ -2491,9 +2478,6 @@ function updateUIAfterLogin() {
         .classList
         .remove('hidden');
 
-      adminLeaveDatesCard
-        .classList
-        .remove('hidden');
 
     } else {
 
@@ -2501,9 +2485,6 @@ function updateUIAfterLogin() {
         .classList
         .add('hidden');
 
-      adminLeaveDatesCard
-        .classList
-        .add('hidden');
 
     }
 
@@ -2753,11 +2734,6 @@ function renderDashboard() {
           'fas fa-user-plus',
           'Employee Management',
           "document.getElementById('adminMasterCard').scrollIntoView({behavior:'smooth'})"
-        ) +
-        dashboardActionButton(
-          'fas fa-calendar-plus',
-          'Leave Dates',
-          "document.getElementById('adminLeaveDatesCard').scrollIntoView({behavior:'smooth'})"
         );
     }
   }
@@ -2897,11 +2873,6 @@ async function loadAllData() {
 
       renderAvailableLeaveDates();
 
-      if(currentRole === 'admin') {
-
-        renderLeaveDatesList();
-
-      }
 
     }
 
@@ -4505,712 +4476,6 @@ async function(id) {
 
 };
 
-
-/* =====================================================
-   LEAVE DATE LIST
-===================================================== */
-
-function renderLeaveDatesList() {
-
-  leaveDatesList.innerHTML =
-    availableLeaveDates
-    .map(d => `
-
-      <div class="leave-date-item">
-
-        ${d.date}
-
-        <button
-          onclick="deleteLeaveDate('${d.id}')">
-
-          ✗
-
-        </button>
-
-      </div>
-
-    `)
-    .join('');
-
-}
-
-
-window.deleteLeaveDate =
-async function(id) {
-
-  await supabaseClient
-    .from('available_leave_dates')
-    .delete()
-    .eq(
-      'id',
-      id
-    );
-
-  showToast(
-    'Date removed',
-    'success'
-  );
-
-  await loadAllData();
-
-};
-
-
-/* =====================================================
-   GLOBAL NOTIFICATION BADGE
-===================================================== */
-
-function updateGlobalNotificationBadge() {
-
-  const notifs =
-    currentRole === 'employee'
-      ? notifications
-      : adminNotifications;
-
-
-  const unreadCount =
-    (notifs || [])
-    .filter(
-      n => !n.read
-    )
-    .length;
-
-
-  globalNotificationBadge.style.display =
-    'inline-block';
-
-
-  if(unreadCount > 0) {
-
-    globalNotificationCount.innerText =
-      unreadCount;
-
-    globalNotificationCount.style.display =
-      'inline-block';
-
-  } else {
-
-    globalNotificationCount.style.display =
-      'none';
-
-  }
-
-}
-
-
-/* =====================================================
-   TOGGLE CARD
-===================================================== */
-
-window.toggleCardContent =
-function(button) {
-
-  const card =
-    button.closest('.card');
-
-  const content =
-    card.querySelector(
-      '.card-content'
-    );
-
-  const icon =
-    button.querySelector('i');
-
-
-  if(content) {
-
-    content.classList.toggle(
-      'hidden'
-    );
-
-
-    if(
-      content.classList.contains(
-        'hidden'
-      )
-    ) {
-
-      icon.className =
-        'fas fa-chevron-down';
-
-    } else {
-
-      icon.className =
-        'fas fa-chevron-up';
-
-    }
-
-  }
-
-};
-
-
-/* =====================================================
-   LOGIN EVENTS
-===================================================== */
-
-adminLoginBtn.onclick =
-() =>
-  openAdminManagerModal(
-    'admin'
-  );
-
-
-managerLoginBtn.onclick =
-() =>
-  openAdminManagerModal(
-    'manager'
-  );
-
-
-employeeLoginBtn.onclick =
-openEmployeeModal;
-
-
-adminManagerLoginBtn.onclick =
-() =>
-  adminManagerLogin(
-    adminManagerUsername.value,
-    adminManagerPassword.value,
-    pendingAdminManagerRole
-  );
-
-
-employeeLoginSubmitBtn.onclick =
-() =>
-  employeeLogin(
-    employeeUsername.value,
-    employeePassword.value
-  );
-
-
-logoutBtn.onclick =
-logout;
-
-
-refreshBtn.onclick =
-async function() {
-
-  await loadAllData();
-
-  showToast(
-    'Data refreshed',
-    'info'
-  );
-
-};
-
-
-/* =====================================================
-   SUBMIT LEAVE REQUEST
-===================================================== */
-
-submitLeaveBtn.onclick =
-async function() {
-
-  if(!currentUser ||
-     currentRole !== 'employee') {
-
-    showToast(
-      'Please login as employee',
-      'error'
-    );
-
-    return;
-
-  }
-
-
-  if(!fromDate.value ||
-     !toDate.value) {
-
-    showToast(
-      'Please select leave dates',
-      'error'
-    );
-
-    return;
-
-  }
-
-
-  if(
-    new Date(toDate.value) <
-    new Date(fromDate.value)
-  ) {
-
-    showToast(
-      'To Date cannot be earlier than From Date',
-      'error'
-    );
-
-    return;
-
-  }
-
-  if(!approvalAuthoritySelect.value) {
-
-    showToast(
-      'Please select an approval authority',
-      'error'
-    );
-
-    approvalAuthoritySelect.focus();
-
-    return;
-
-  }
-
-  const selectedManager =
-    managerList.find(
-      m =>
-        String(m.id) ===
-        String(approvalAuthoritySelect.value)
-    );
-
-  if(!selectedManager) {
-
-    showToast(
-      'Selected approval authority is not available',
-      'error'
-    );
-
-    return;
-
-  }
-
-
-  const newRequest = {
-
-    id:
-      'req_' +
-      Date.now(),
-
-    employee_id:
-      currentUser.employeeId,
-
-    employee_name:
-      currentUser.name,
-
-    type:
-      leaveTypeSelect.value,
-
-    from_date:
-      fromDate.value,
-
-    to_date:
-      toDate.value,
-
-    reason:
-      reason.value,
-
-    status:
-      'pending'
-
-  };
-
-
-  const {
-    error
-  } =
-  await supabaseClient
-    .from('leave_requests')
-    .insert([
-      newRequest
-    ]);
-
-
-  if(error) {
-
-    console.error(
-      error
-    );
-
-    showToast(
-      'Unable to submit leave request',
-      'error'
-    );
-
-    return;
-
-  }
-
-
-  /*
-   * Admin / Manager notifications.
-   * Employee ID is NOT shown in notification.
-   */
-
-  const ts =
-    Date.now();
-
-  const requestMessage =
-    `New leave request from ${currentUser.name}`;
-
-  /*
-   * Admin receives every new request.
-   * Only the selected approval authority receives
-   * the manager notification.
-   */
-  const notificationRows = [
-    {
-      id:
-        'notif_' +
-        ts +
-        '_admin',
-      user_id:
-        'admin',
-      message:
-        requestMessage,
-      timestamp:
-        ts,
-      read:
-        false,
-      type:
-        'info'
-    },
-    {
-      id:
-        'notif_' +
-        ts +
-        '_manager_' +
-        String(selectedManager.id),
-      user_id:
-        selectedManager.id,
-      message:
-        requestMessage,
-      timestamp:
-        ts,
-      read:
-        false,
-      type:
-        'info'
-    }
-  ];
-
-  const {
-    error:notificationError
-  } =
-  await supabaseClient
-    .from('notifications')
-    .insert(notificationRows);
-
-  if(notificationError) {
-
-    console.error(
-      notificationError
-    );
-
-    showToast(
-      'Leave submitted, but Admin/Manager notification could not be created.',
-      'error',
-      7000
-    );
-
-  }
-
-
-  showToast(
-    'Leave request submitted',
-    'success'
-  );
-
-
-  reason.value =
-    '';
-
-
-  await loadAllData();
-
-};
-
-
-/* =====================================================
-   ADD EMPLOYEE
-===================================================== */
-
-saveEmpBtn.onclick =
-async function() {
-
-  if(currentRole !== 'admin') {
-
-    showToast(
-      'Only admin can add employees',
-      'error'
-    );
-
-    return;
-
-  }
-
-
-  const newEmployee = {
-
-    id:
-      'emp_' +
-      Date.now(),
-
-    name:
-      el('empName').value,
-
-    designation:
-      el('empDesignation').value,
-
-    dept:
-      el('empDept').value,
-
-    username:
-      el('empUsername').value,
-
-    password_hash:
-      hashPassword(
-        el('empPassword').value
-      ).toString(),
-
-    casual_quota:
-      parseInt(
-        el('empCasualQuota').value
-      ) || 12,
-
-    sick_quota:
-      parseInt(
-        el('empSickQuota').value
-      ) || 10,
-
-    casual_used:
-      0,
-
-    sick_used:
-      0
-
-  };
-
-
-  const {
-    error
-  } =
-  await supabaseClient
-    .from('employees')
-    .insert([
-      newEmployee
-    ]);
-
-
-  if(error) {
-
-    showToast(
-      'Unable to add employee',
-      'error'
-    );
-
-    return;
-
-  }
-
-
-  showToast(
-    'Employee added',
-    'success'
-  );
-
-
-  addEmpForm.style.display =
-    'none';
-
-
-  await loadAllData();
-
-};
-
-
-/* =====================================================
-   SAVE EDIT EMPLOYEE
-===================================================== */
-
-saveEditBtn.onclick =
-async function() {
-
-  if(currentRole !== 'admin') {
-
-    showToast(
-      'Only admin can edit employees',
-      'error'
-    );
-
-    return;
-
-  }
-
-
-  const updates = {
-
-    name:
-      editName.value,
-
-    designation:
-      editDesignation.value,
-
-    dept:
-      editDept.value,
-
-    username:
-      editUsername.value,
-
-    casual_quota:
-      parseInt(
-        editCasualQuota.value
-      ),
-
-    sick_quota:
-      parseInt(
-        editSickQuota.value
-      ),
-
-    casual_used:
-      parseInt(
-        editCasualUsed.value
-      ),
-
-    sick_used:
-      parseInt(
-        editSickUsed.value
-      )
-
-  };
-
-
-  const newPassword =
-    editPassword.value.trim();
-
-
-  if(newPassword) {
-
-    updates.password_hash =
-      hashPassword(
-        newPassword
-      ).toString();
-
-  }
-
-
-  const {
-    error
-  } =
-  await supabaseClient
-    .from('employees')
-    .update(updates)
-    .eq(
-      'id',
-      editEmployeeId.value
-    );
-
-
-  if(error) {
-
-    showToast(
-      'Unable to update employee',
-      'error'
-    );
-
-    return;
-
-  }
-
-
-  showToast(
-    newPassword
-      ? 'Employee updated and password changed'
-      : 'Employee updated',
-    'success'
-  );
-
-
-  editPassword.value =
-    '';
-
-  closeEditModal();
-
-  await loadAllData();
-
-};
-
-
-/* =====================================================
-   ADD LEAVE DATE
-===================================================== */
-
-addLeaveDateBtn.onclick =
-async function() {
-
-  if(!newLeaveDate.value) {
-
-    showToast(
-      'Please select a date',
-      'error'
-    );
-
-    return;
-
-  }
-
-
-  const newDate = {
-
-    id:
-      'date_' +
-      Date.now(),
-
-    date:
-      newLeaveDate.value,
-
-    status:
-      'available'
-
-  };
-
-
-  const {
-    error
-  } =
-  await supabaseClient
-    .from('available_leave_dates')
-    .insert([
-      newDate
-    ]);
-
-
-  if(error) {
-
-    showToast(
-      'Unable to add date',
-      'error'
-    );
-
-    return;
-
-  }
-
-
-  showToast(
-    'Date added',
-    'success'
-  );
-
-
-  await loadAllData();
-
-};
-
-
-showAddEmpFormBtn.onclick =
-function() {
-
-  addEmpForm.style.display =
-    addEmpForm.style.display === 'none'
-      ? 'block'
-      : 'none';
-
-};
 
 
 /* =====================================================
