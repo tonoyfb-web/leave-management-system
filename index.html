@@ -736,6 +736,8 @@ td {
 
 }
 
+.fa-spin{animation:fa-spin 1s infinite linear;}
+@keyframes fa-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 </style>
 
 
@@ -2847,252 +2849,156 @@ async function loadManagerList() {
 
 
 /* =====================================================
+   GLOBAL NOTIFICATION BADGE
+===================================================== */
+function updateGlobalNotificationBadge() {
+  if (!currentUser || !currentRole) {
+    globalNotificationBadge.style.display = 'none';
+    globalNotificationCount.textContent = '0';
+    return;
+  }
+
+  const list = currentRole === 'employee'
+    ? (notifications || [])
+    : (adminNotifications || []);
+
+  const unread = list.filter(n => !n.read).length;
+  globalNotificationCount.textContent = unread;
+  globalNotificationBadge.style.display = unread > 0 ? 'inline-block' : 'inline-block';
+}
+
+/* =====================================================
+   SAFE SUPABASE ERROR HELPER
+===================================================== */
+function showDataError(section, error) {
+  console.error('LeaveFlow ' + section + ' error:', error);
+  const detail = error && (error.message || error.details || error.hint)
+    ? ' — ' + (error.message || error.details || error.hint)
+    : '';
+  showToast('Unable to load ' + section + detail, 'error', 7000);
+}
+
+/* =====================================================
    LOAD ALL DATA
 ===================================================== */
 
 async function loadAllData() {
-
-  if(!currentUser)
-    return;
+  if (!currentUser || !currentRole) return;
 
   try {
+    /* AVAILABLE DATES - optional; never block the dashboard */
+    const { data: datesData, error: datesError } =
+      await supabaseClient.from('available_leave_dates').select('*');
 
-    /* AVAILABLE DATES */
-
-    const {
-      data:datesData
-    } =
-    await supabaseClient
-      .from('available_leave_dates')
-      .select('*');
-
-    if(datesData) {
-
-      availableLeaveDates =
-        datesData;
-
-      renderAvailableLeaveDates();
-
-
+    if (datesError) {
+      console.warn('Available dates could not be loaded:', datesError);
+      availableLeaveDates = [];
+    } else {
+      availableLeaveDates = datesData || [];
     }
+    renderAvailableLeaveDates();
 
+    if (currentRole === 'employee') {
+      /* EMPLOYEE PROFILE */
+      const { data: empData, error: empError } =
+        await supabaseClient
+          .from('employees')
+          .select('*')
+          .eq('id', currentUser.employeeId)
+          .single();
 
-    /* EMPLOYEE */
+      if (empError) throw new Error('Employee data: ' + empError.message);
+      if (!empData) throw new Error('Employee record was not found.');
 
-    if(currentRole === 'employee') {
+      renderBalance(empData);
+      currentUser.department = empData.dept || '';
+      currentUser.approvalAuthorityId = empData.approval_authority || '';
+      saveSession();
 
-      const {
-        data:empData
-      } =
-      await supabaseClient
-        .from('employees')
-        .select('*')
-        .eq(
-          'id',
-          currentUser.employeeId
-        )
-        .single();
-
-      if(empData) {
-
-        renderBalance(
-          empData
-        );
-
-        currentUser.department =
-          empData.dept || '';
-
-        currentUser.approvalAuthorityId =
-          empData.approval_authority || '';
-
-        saveSession();
-
-      }
-
+      /* MANAGER LIST */
       await loadManagerList();
 
-
       /* EMPLOYEE LEAVE REQUESTS */
-
-      const {
-        data:reqData
-      } =
-      await supabaseClient
-        .from('leave_requests')
-        .select('*')
-        .eq(
-          'employee_id',
-          currentUser.employeeId
-        )
-        .order(
-          'from_date',
-          {ascending:false}
-        );
-
-      if(reqData) {
-
-        leaveRequests =
-          reqData;
-
-        renderEmployeeRequests();
-
-        renderEmployeeLeaveHistory();
-
-      }
-
-
-      /* EMPLOYEE NOTIFICATIONS */
-
-      const {
-        data:notifData
-      } =
-      await supabaseClient
-        .from('notifications')
-        .select('*')
-        .eq(
-          'user_id',
-          currentUser.employeeId
-        )
-        .order(
-          'timestamp',
-          {ascending:false}
-        );
-
-      if(notifData) {
-
-        notifications =
-          notifData;
-
-        renderNotifications(
-          notificationList,
-          notifCountSpan,
-          notifications
-        );
-
-      }
-
-    }
-
-
-    /* ADMIN / MANAGER */
-
-    else {
-
-      const {
-        data:empData
-      } =
-      await supabaseClient
-        .from('employees')
-        .select('*');
-
-      if(empData) {
-
-        employees =
-          empData;
-
-      }
-
-
-      let requestQuery =
-        supabaseClient
+      const { data: reqData, error: reqError } =
+        await supabaseClient
           .from('leave_requests')
           .select('*')
-          .order(
-            'from_date',
-            {ascending:false}
-          );
+          .eq('employee_id', currentUser.employeeId)
+          .order('from_date', { ascending: false });
 
-      /*
-       * ADMIN sees all requests.
-       * MANAGER sees only requests assigned
-       * to that manager's user id.
-       */
-      if(currentRole === 'manager') {
-        requestQuery =
-          requestQuery.eq(
-            'approval_authority',
-            currentUser.id
-          );
-      }
+      if (reqError) throw new Error('Leave requests: ' + reqError.message);
+      leaveRequests = reqData || [];
+      renderEmployeeRequests();
+      renderEmployeeLeaveHistory();
 
-      const {
-        data:reqData
-      } =
-      await requestQuery;
+      /* EMPLOYEE NOTIFICATIONS */
+      const { data: notifData, error: notifError } =
+        await supabaseClient
+          .from('notifications')
+          .select('*')
+          .eq('user_id', currentUser.employeeId)
+          .order('timestamp', { ascending: false });
 
-      if(reqData) {
+      if (notifError) throw new Error('Notifications: ' + notifError.message);
+      notifications = notifData || [];
+      renderNotifications(notificationList, notifCountSpan, notifications);
 
-        leaveRequests =
-          reqData;
+    } else {
+      /* ALL EMPLOYEES FOR ADMIN/MANAGER */
+      const { data: empData, error: empError } =
+        await supabaseClient.from('employees').select('*');
 
-        renderRequestTable();
+      if (empError) throw new Error('Employees: ' + empError.message);
+      employees = empData || [];
 
-        renderAdminLeaveHistory();
-
-        populateEmployeeDropdown();
-
-      }
-
-
-      const {
-        data:notifData
-      } =
-      await supabaseClient
-        .from('notifications')
+      /* REQUESTS: ADMIN = ALL, MANAGER = ONLY ASSIGNED */
+      let requestQuery = supabaseClient
+        .from('leave_requests')
         .select('*')
-        .eq(
-          'user_id',
-          currentRole === 'manager'
-            ? currentUser.id
-            : 'admin'
-        )
-        .order(
-          'timestamp',
-          {ascending:false}
-        );
+        .order('from_date', { ascending: false });
 
-      if(notifData) {
-
-        adminNotifications =
-          notifData;
-
-        renderNotifications(
-          adminNotificationList,
-          adminNotifCountSpan,
-          adminNotifications
-        );
-
+      if (currentRole === 'manager') {
+        requestQuery = requestQuery.eq('approval_authority', currentUser.id);
       }
 
+      const { data: reqData, error: reqError } = await requestQuery;
+      if (reqError) throw new Error('Leave requests: ' + reqError.message);
 
-      if(currentRole === 'admin') {
+      leaveRequests = reqData || [];
+      renderRequestTable();
+      renderAdminLeaveHistory();
+      populateEmployeeDropdown();
 
-        renderEmployeeMaster();
+      /* ADMIN/MANAGER NOTIFICATIONS */
+      const notificationUserId = currentRole === 'manager' ? currentUser.id : 'admin';
+      const { data: notifData, error: notifError } =
+        await supabaseClient
+          .from('notifications')
+          .select('*')
+          .eq('user_id', notificationUserId)
+          .order('timestamp', { ascending: false });
 
-      }
+      if (notifError) throw new Error('Notifications: ' + notifError.message);
+      adminNotifications = notifData || [];
+      renderNotifications(adminNotificationList, adminNotifCountSpan, adminNotifications);
 
+      if (currentRole === 'admin') renderEmployeeMaster();
     }
-
 
     updateGlobalNotificationBadge();
     renderDashboard();
+    statusMessage.textContent = '';
 
-  } catch(e) {
-
-    console.error(
-      'Error loading data:',
-      e
-    );
-
-    showToast(
-      'Failed to load data',
-      'error'
-    );
-
+  } catch (e) {
+    console.error('Error loading data:', e);
+    statusMessage.innerHTML =
+      '<div style="background:#fee2e2;color:#991b1b;padding:10px 14px;border-radius:12px;margin-bottom:12px;">' +
+      'Data loading error: ' +
+      String(e.message || e).replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+      '</div>';
+    showToast('Failed to load data: ' + (e.message || e), 'error', 8000);
   }
-
 }
-
 
 /* =====================================================
    EMPLOYEE BALANCE
@@ -4479,6 +4385,201 @@ async function(id) {
 
 
 /* =====================================================
+   BUTTON / FORM HANDLERS
+===================================================== */
+
+adminLoginBtn.addEventListener('click', () => openAdminManagerModal('admin'));
+managerLoginBtn.addEventListener('click', () => openAdminManagerModal('manager'));
+employeeLoginBtn.addEventListener('click', openEmployeeModal);
+logoutBtn.addEventListener('click', logout);
+refreshBtn.addEventListener('click', async () => {
+  if (!currentUser) {
+    showToast('Please login first.', 'info');
+    return;
+  }
+  refreshBtn.querySelector('i').classList.add('fa-spin');
+  try { await loadAllData(); }
+  finally { refreshBtn.querySelector('i').classList.remove('fa-spin'); }
+});
+
+adminManagerLoginBtn.addEventListener('click', async () => {
+  await adminManagerLogin(
+    adminManagerUsername.value.trim(),
+    adminManagerPassword.value,
+    pendingAdminManagerRole
+  );
+});
+
+employeeLoginSubmitBtn.addEventListener('click', async () => {
+  await employeeLogin(
+    employeeUsername.value.trim(),
+    employeePassword.value
+  );
+});
+
+adminManagerPassword.addEventListener('keydown', e => {
+  if (e.key === 'Enter') adminManagerLoginBtn.click();
+});
+employeePassword.addEventListener('keydown', e => {
+  if (e.key === 'Enter') employeeLoginSubmitBtn.click();
+});
+
+async function submitLeaveRequest() {
+  if (!currentUser || currentRole !== 'employee') {
+    showToast('Please login as employee.', 'error');
+    return;
+  }
+
+  const type = leaveTypeSelect.value;
+  const authority = approvalAuthoritySelect.value;
+  const from = fromDate.value;
+  const to = toDate.value;
+  const leaveReason = reason.value.trim();
+
+  if (!authority) return showToast('Please select an approval authority.', 'error');
+  if (!from || !to) return showToast('Please select leave dates.', 'error');
+  if (to < from) return showToast('To date cannot be earlier than From date.', 'error');
+
+  const days = Math.floor((new Date(to + 'T00:00:00') - new Date(from + 'T00:00:00')) / 86400000) + 1;
+  const emp = employees.find(e => String(e.id) === String(currentUser.employeeId));
+
+  /* Use the freshly loaded employee record if available. */
+  let employeeRecord = emp;
+  if (!employeeRecord) {
+    const { data, error } = await supabaseClient.from('employees').select('*').eq('id', currentUser.employeeId).single();
+    if (error) return showToast('Unable to verify your leave balance: ' + error.message, 'error', 7000);
+    employeeRecord = data;
+  }
+
+  const quota = type === 'Casual' ? Number(employeeRecord.casual_quota || 0) : Number(employeeRecord.sick_quota || 0);
+  const used = type === 'Casual' ? Number(employeeRecord.casual_used || 0) : Number(employeeRecord.sick_used || 0);
+  if (days > Math.max(0, quota - used)) {
+    return showToast(`Insufficient ${type} leave balance. Available: ${Math.max(0, quota - used)} day(s).`, 'error', 7000);
+  }
+
+  submitLeaveBtn.disabled = true;
+  submitLeaveBtn.textContent = 'Submitting...';
+
+  try {
+    const manager = managerList.find(m => String(m.id) === String(authority));
+    const requestId = 'leave_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+
+    const { data: requestData, error } = await supabaseClient
+      .from('leave_requests')
+      .insert([{
+        id: requestId,
+        employee_id: currentUser.employeeId,
+        employee_name: currentUser.name,
+        type,
+        from_date: from,
+        to_date: to,
+        reason: leaveReason,
+        status: 'pending',
+        approval_authority: authority,
+        approval_authority_name: manager ? manager.name : ''
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    /* Notify only the selected manager and the admin. */
+    const ts = Date.now();
+    const notificationRows = [
+      {
+        id: 'notif_' + ts + '_admin_' + Math.random().toString(36).slice(2, 6),
+        user_id: 'admin',
+        message: `New ${type} leave request from ${currentUser.name}`,
+        timestamp: ts,
+        read: false,
+        type: 'info'
+      },
+      {
+        id: 'notif_' + ts + '_manager_' + Math.random().toString(36).slice(2, 6),
+        user_id: authority,
+        message: `New ${type} leave request from ${currentUser.name}`,
+        timestamp: ts,
+        read: false,
+        type: 'info'
+      }
+    ];
+
+    const { error: notificationError } = await supabaseClient
+      .from('notifications')
+      .insert(notificationRows);
+
+    if (notificationError) {
+      console.warn('Leave submitted but notification insert failed:', notificationError);
+      showToast('Leave submitted, but notification could not be created.', 'error', 7000);
+    } else {
+      showToast('Leave request submitted successfully.', 'success');
+    }
+
+    reason.value = '';
+    await loadAllData();
+
+  } catch (error) {
+    console.error('Submit leave error:', error);
+    showToast('Unable to submit leave: ' + (error.message || error), 'error', 8000);
+  } finally {
+    submitLeaveBtn.disabled = false;
+    submitLeaveBtn.textContent = 'Submit';
+  }
+}
+
+submitLeaveBtn.addEventListener('click', submitLeaveRequest);
+
+showAddEmpFormBtn.addEventListener('click', () => {
+  addEmpForm.style.display = addEmpForm.style.display === 'none' ? 'block' : 'none';
+});
+
+async function saveEmployee() {
+  if (currentRole !== 'admin') return showToast('Admin access required.', 'error');
+  const name = el('empName').value.trim();
+  const designation = el('empDesignation').value.trim();
+  const dept = el('empDept').value.trim();
+  const username = el('empUsername').value.trim();
+  const password = el('empPassword').value;
+  const casual_quota = Number(el('empCasualQuota').value || 10);
+  const sick_quota = Number(el('empSickQuota').value || 15);
+  if (!name || !username || !password) return showToast('Name, username and password are required.', 'error');
+
+  const id = 'emp_' + Date.now();
+  const { error } = await supabaseClient.from('employees').insert([{
+    id, name, designation, dept, username,
+    password_hash: String(hashPassword(password)),
+    casual_quota, sick_quota, casual_used: 0, sick_used: 0,
+    approval_authority: null
+  }]);
+  if (error) return showToast('Unable to add employee: ' + error.message, 'error', 8000);
+  showToast('Employee added successfully.', 'success');
+  ['empName','empDesignation','empDept','empUsername','empPassword'].forEach(id => el(id).value = '');
+  await loadAllData();
+}
+saveEmpBtn.addEventListener('click', saveEmployee);
+
+saveEditBtn.addEventListener('click', async () => {
+  if (currentRole !== 'admin') return showToast('Admin access required.', 'error');
+  const id = editEmployeeId.value;
+  const payload = {
+    name: editName.value.trim(),
+    designation: editDesignation.value.trim(),
+    dept: editDept.value.trim(),
+    username: editUsername.value.trim(),
+    casual_quota: Number(editCasualQuota.value || 0),
+    sick_quota: Number(editSickQuota.value || 0),
+    casual_used: Number(editCasualUsed.value || 0),
+    sick_used: Number(editSickUsed.value || 0)
+  };
+  if (editPassword.value) payload.password_hash = String(hashPassword(editPassword.value));
+  const { error } = await supabaseClient.from('employees').update(payload).eq('id', id);
+  if (error) return showToast('Unable to save employee: ' + error.message, 'error', 8000);
+  closeEditModal();
+  showToast('Employee updated successfully.', 'success');
+  await loadAllData();
+});
+
+/* =====================================================
    DESKTOP NOTIFICATIONS
    + SUPABASE REALTIME
 ===================================================== */
@@ -4975,6 +5076,41 @@ async function() {
   }
 
 })();
+
+
+/* =====================================================
+   CARD EXPAND / COLLAPSE
+   Fix: the HTML buttons call toggleCardContent(this), but
+   the function was missing from the page.
+===================================================== */
+window.toggleCardContent = function(button) {
+  if (!button) return;
+
+  const card = button.closest('.card');
+  if (!card) return;
+
+  const content = card.querySelector('.card-content');
+  const icon = button.querySelector('i');
+  if (!content) return;
+
+  const isHidden = content.classList.toggle('hidden');
+
+  if (icon) {
+    icon.classList.toggle('fa-chevron-down', isHidden);
+    icon.classList.toggle('fa-chevron-up', !isHidden);
+  }
+
+  button.setAttribute('aria-expanded', String(!isHidden));
+};
+
+document.querySelectorAll('.toggle-card-btn').forEach(function(button) {
+  button.setAttribute('type', 'button');
+  const card = button.closest('.card');
+  const content = card ? card.querySelector('.card-content') : null;
+  const isHidden = !content || content.classList.contains('hidden');
+  button.setAttribute('aria-expanded', String(!isHidden));
+  button.setAttribute('aria-label', 'Expand or collapse section');
+});
 
 </script>
 
